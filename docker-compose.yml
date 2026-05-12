@@ -1,0 +1,13 @@
+services:
+  lucid-ai-trader:
+    build: .
+    command: python dashboard/server.py
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./reports:/app/reports
+    restart: unless-stopped

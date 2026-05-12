@@ -1,0 +1,86 @@
+//@version=5
+indicator("Lucid Trading Concepts", overlay=true, max_labels_count=500, max_boxes_count=200, max_lines_count=400)
+
+// --------------------------------------------------------------------
+// Inputs
+// --------------------------------------------------------------------
+lookback = input.int(5, "Swing Lookback", minval=2, tooltip="Bars on each side for swing detection.")
+showSessions = input.bool(true, "Show Session Shading", tooltip="Shade ICT kill zones and overlap.")
+showSwings = input.bool(true, "Show Swing Points", tooltip="Plot swing highs/lows with triangles.")
+showFVG = input.bool(true, "Show FVG Zones", tooltip="Draw simple 3-candle FVG zones.")
+showOB = input.bool(true, "Show Order Blocks", tooltip="Draw basic order block boxes.")
+showLiquidity = input.bool(true, "Show Liquidity Lines", tooltip="Draw dotted lines at latest swing levels.")
+
+// --------------------------------------------------------------------
+// Session shading (US/Eastern approximated using exchange timezone)
+// --------------------------------------------------------------------
+isLondon = not na(time(timeframe.period, "0200-0500"))
+isNyOpen = not na(time(timeframe.period, "0700-1000"))
+isOverlap = not na(time(timeframe.period, "0800-1200"))
+
+if showSessions
+    bgcolor(isLondon ? color.new(color.blue, 88) : na, title="London Kill Zone")
+    bgcolor(isNyOpen ? color.new(color.green, 88) : na, title="NY Kill Zone")
+    bgcolor(isOverlap ? color.new(color.teal, 90) : na, title="London/NY Overlap")
+
+// --------------------------------------------------------------------
+// Swing highs / lows
+// --------------------------------------------------------------------
+swingHigh = ta.pivothigh(high, lookback, lookback)
+swingLow = ta.pivotlow(low, lookback, lookback)
+
+plotshape(showSwings and not na(swingHigh), title="Swing High", style=shape.triangledown, location=location.abovebar, color=color.new(color.red, 0), size=size.tiny, text="SH", tooltip="Swing high liquidity point.")
+plotshape(showSwings and not na(swingLow), title="Swing Low", style=shape.triangleup, location=location.belowbar, color=color.new(color.lime, 0), size=size.tiny, text="SL", tooltip="Swing low liquidity point.")
+
+// --------------------------------------------------------------------
+// BOS / CHoCH / MSS simple logic
+// --------------------------------------------------------------------
+var float lastSwingHigh = na
+var float lastSwingLow = na
+if not na(swingHigh)
+    lastSwingHigh := swingHigh
+if not na(swingLow)
+    lastSwingLow := swingLow
+
+bosBull = not na(lastSwingHigh) and close > lastSwingHigh
+bosBear = not na(lastSwingLow) and close < lastSwingLow
+
+if bosBull
+    line.new(bar_index - 1, lastSwingHigh, bar_index, lastSwingHigh, extend=extend.right, color=color.new(color.green, 0), width=1, style=line.style_solid)
+    label.new(bar_index, close, "BOS", style=label.style_label_up, textcolor=color.white, color=color.new(color.green, 10), tooltip="Bullish break of structure.")
+if bosBear
+    line.new(bar_index - 1, lastSwingLow, bar_index, lastSwingLow, extend=extend.right, color=color.new(color.red, 0), width=1, style=line.style_solid)
+    label.new(bar_index, close, "CHoCH/MSS", style=label.style_label_down, textcolor=color.white, color=color.new(color.red, 10), tooltip="Bearish structure shift / reversal pressure.")
+
+// --------------------------------------------------------------------
+// FVG zones (3-candle imbalance)
+// --------------------------------------------------------------------
+bullFvg = low > high[2]
+bearFvg = high < low[2]
+
+if showFVG and bullFvg
+    box.new(left=bar_index - 2, top=low, right=bar_index, bottom=high[2], bgcolor=color.new(color.green, 88), border_color=color.new(color.green, 50), text="Bull FVG", text_color=color.white, tooltip="Bullish fair value gap (imbalance zone).")
+if showFVG and bearFvg
+    box.new(left=bar_index - 2, top=low[2], right=bar_index, bottom=high, bgcolor=color.new(color.red, 88), border_color=color.new(color.red, 50), text="Bear FVG", text_color=color.white, tooltip="Bearish fair value gap (imbalance zone).")
+
+// --------------------------------------------------------------------
+// Order blocks (basic approximation from BOS trigger candle)
+// --------------------------------------------------------------------
+if showOB and bosBull and close[1] < open[1]
+    box.new(left=bar_index - 1, right=bar_index + 10, top=high[1], bottom=low[1], bgcolor=color.new(color.green, 92), border_color=color.new(color.green, 35), text="Bull OB", text_color=color.white, tooltip="Last bearish candle before bullish impulse.")
+if showOB and bosBear and close[1] > open[1]
+    box.new(left=bar_index - 1, right=bar_index + 10, top=high[1], bottom=low[1], bgcolor=color.new(color.red, 92), border_color=color.new(color.red, 35), text="Bear OB", text_color=color.white, tooltip="Last bullish candle before bearish impulse.")
+
+// --------------------------------------------------------------------
+// Liquidity pool lines
+// --------------------------------------------------------------------
+if showLiquidity and not na(lastSwingHigh)
+    line.new(bar_index - 1, lastSwingHigh, bar_index + 20, lastSwingHigh, color=color.new(color.orange, 0), style=line.style_dotted, width=1)
+if showLiquidity and not na(lastSwingLow)
+    line.new(bar_index - 1, lastSwingLow, bar_index + 20, lastSwingLow, color=color.new(color.aqua, 0), style=line.style_dotted, width=1)
+
+// --------------------------------------------------------------------
+// VWAP
+// --------------------------------------------------------------------
+vwapLine = ta.vwap(hlc3)
+plot(vwapLine, title="VWAP", color=color.new(color.yellow, 0), linewidth=2, tooltip="Volume-weighted average price.")

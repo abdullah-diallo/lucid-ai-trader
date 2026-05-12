@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "Lucid AI Trader",
+      "runtimeExecutable": "C:\\Users\\soule\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
+      "runtimeArgs": ["dashboard/server.py"],
+      "port": 8080,
+      "autoPort": false
+    }
+  ]
+}

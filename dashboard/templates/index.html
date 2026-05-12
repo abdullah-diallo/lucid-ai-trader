@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#000000" />
+  <title>Lucid AI Trader</title>
+  <link rel="stylesheet" href="/static/css/design-system.css" />
+
+  <style>
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: var(--space-5);
+    }
+    .span-2 { grid-column: span 2; }
+    .span-3 { grid-column: span 3; }
+
+    @media (max-width: 1200px) {
+      .dashboard-grid { grid-template-columns: 1fr 1fr; }
+      .span-2 { grid-column: span 2; }
+      .span-3 { grid-column: span 2; }
+    }
+    @media (max-width: 768px) {
+      .dashboard-grid { grid-template-columns: 1fr; }
+      .span-2, .span-3 { grid-column: span 1; }
+    }
+
+    /* ── View panels ── */
+    .view-panel { display: none; }
+    .view-panel.active { display: block; }
+
+    /* ── P&L row ── */
+    .pnl-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: var(--space-4);
+      margin-bottom: var(--space-5);
+    }
+    @media (max-width: 900px) { .pnl-row { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 600px) { .pnl-row { grid-template-columns: 1fr 1fr; } }
+
+    .pnl-card {
+      background: var(--glass-2, rgba(255,255,255,0.06));
+      border: var(--border-hair, 1px solid rgba(255,255,255,0.10));
+      border-radius: var(--radius-lg, 16px);
+      padding: var(--space-4) var(--space-5);
+      display: flex; flex-direction: column; gap: var(--space-2);
+      transition: transform .18s ease;
+    }
+    .pnl-card:hover { transform: translateY(-2px); }
+    .pnl-card-label { font-size: 11px; text-transform: uppercase; letter-spacing: .07em; color: var(--text-tertiary, rgba(255,255,255,.4)); }
+    .pnl-card-value { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .pnl-card-sub   { font-size: 11px; color: var(--text-tertiary, rgba(255,255,255,.4)); }
+    .text-profit { color: #34c759; }
+    .text-loss   { color: #ff3b30; }
+    .text-neutral { color: var(--text-secondary, rgba(255,255,255,.6)); }
+
+    /* ── Strategy grid ── */
+    .strategy-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: var(--space-5);
+      margin-top: var(--space-5);
+    }
+    @media (max-width: 1100px) { .strategy-grid { grid-template-columns: repeat(2,1fr); } }
+    @media (max-width: 700px)  { .strategy-grid { grid-template-columns: 1fr; } }
+
+    .strategy-card {
+      background: var(--glass-2, rgba(255,255,255,0.06));
+      border: var(--border-hair, 1px solid rgba(255,255,255,0.10));
+      border-radius: var(--radius-lg, 16px);
+      padding: var(--space-5);
+      display: flex; flex-direction: column; gap: var(--space-3);
+      cursor: pointer;
+      transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+    }
+    .strategy-card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 12px 40px rgba(0,0,0,0.30);
+      border-color: rgba(255,255,255,0.22);
+    }
+    .strategy-card-header { display: flex; align-items: center; justify-content: space-between; }
+    .strategy-card-name   { font-size: 14px; font-weight: 600; }
+    .strategy-card-class  { font-size: 11px; font-family: var(--font-mono,monospace); color: var(--text-tertiary,rgba(255,255,255,.4)); margin-top:2px; }
+    .strategy-card-desc   { font-size: 12px; color: var(--text-secondary,rgba(255,255,255,.6)); line-height:1.5; flex:1; }
+    .strategy-card-footer { display:flex; align-items:center; justify-content:space-between; margin-top:auto; }
+    .strategy-card-file   { font-size:10px; font-family:var(--font-mono,monospace); color:var(--text-tertiary,rgba(255,255,255,.3)); }
+    .strategy-pill-active {
+      font-size:10px; font-weight:600; letter-spacing:.06em; text-transform:uppercase;
+      background:rgba(52,199,89,.15); color:#34c759;
+      border:1px solid rgba(52,199,89,.3); border-radius:20px; padding:2px 8px;
+    }
+    .strategy-method-count {
+      font-size:10px; color:var(--text-tertiary,rgba(255,255,255,.4));
+    }
+
+    /* ── TradingView view ── */
+    .tv-view-layout {
+      display: flex; flex-direction: column; gap: var(--space-4);
+      height: calc(100vh - 100px);
+    }
+    .tv-control-bar {
+      display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap;
+      background: var(--glass-1, rgba(255,255,255,0.03));
+      border: var(--border-hair, 1px solid rgba(255,255,255,0.08));
+      border-radius: var(--radius-lg, 16px);
+      padding: var(--space-3) var(--space-4);
+    }
+    .tv-control-bar .input-glass {
+      background: var(--glass-2, rgba(255,255,255,0.06));
+      border: var(--border-hair, 1px solid rgba(255,255,255,0.12));
+      border-radius: var(--radius-sm, 8px);
+      color: inherit; font-size: 13px; padding: 6px 10px;
+      outline: none; min-width: 0;
+    }
+    .tv-control-bar .input-glass:focus { border-color: rgba(255,255,255,0.3); }
+    .tv-control-bar select.input-glass option { background: #1c1c1e; }
+    .tv-control-label { font-size: 11px; color: var(--text-tertiary,rgba(255,255,255,.4)); text-transform:uppercase; letter-spacing:.06em; white-space:nowrap; }
+    .tv-chart-wrap {
+      flex: 1;
+      border-radius: var(--radius-lg, 16px);
+      overflow: hidden;
+      background: #000;
+      border: var(--border-hair, 1px solid rgba(255,255,255,0.08));
+      min-height: 420px;
+    }
+    #tv-chart { width:100%; height:100%; }
+
+    .tv-account-bar {
+      display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap;
+      background: rgba(52,199,89,0.06);
+      border: 1px solid rgba(52,199,89,0.18);
+      border-radius: var(--radius-lg, 16px);
+      padding: var(--space-3) var(--space-4);
+    }
+    .tv-account-pill {
+      display: flex; align-items: center; gap: 6px;
+      background: var(--glass-2,rgba(255,255,255,.06));
+      border: var(--border-hair,1px solid rgba(255,255,255,.12));
+      border-radius: 20px; padding: 4px 12px; cursor: pointer;
+      font-size: 12px; transition: background .15s ease;
+    }
+    .tv-account-pill:hover { background: var(--glass-3,rgba(255,255,255,.10)); }
+    .tv-account-pill.is-active { border-color: rgba(52,199,89,.5); color:#34c759; }
+    .tv-account-pill .dot { width:7px; height:7px; border-radius:50%; background:#34c759; }
+    .tv-account-dot-off { background: rgba(255,255,255,0.3) !important; }
+
+    /* ── Strategy detail modal ── */
+    #strategy-detail-modal .modal-card {
+      max-width: 680px; width: 92vw; max-height: 85vh; overflow-y: auto;
+    }
+    .method-list { display: flex; flex-direction: column; gap: var(--space-3); margin-top: var(--space-3); }
+    .method-item {
+      background: var(--glass-1,rgba(255,255,255,.03));
+      border: var(--border-hair,1px solid rgba(255,255,255,.08));
+      border-radius: var(--radius-md,12px);
+      padding: var(--space-3) var(--space-4);
+    }
+    .method-name { font-family:var(--font-mono,monospace); font-size:13px; font-weight:600; color:#64d2ff; }
+    .method-params { font-family:var(--font-mono,monospace); font-size:11px; color:var(--text-tertiary,rgba(255,255,255,.4)); margin-top:3px; }
+    .method-doc { font-size:12px; color:var(--text-secondary,rgba(255,255,255,.6)); margin-top:6px; line-height:1.5; }
+    .detail-section-label {
+      font-size:11px; text-transform:uppercase; letter-spacing:.08em;
+      color:var(--text-tertiary,rgba(255,255,255,.4)); margin:var(--space-5) 0 var(--space-3);
+    }
+    .param-chip {
+      display:inline-block; font-family:var(--font-mono,monospace); font-size:11px;
+      background:rgba(100,210,255,.12); color:#64d2ff;
+      border:1px solid rgba(100,210,255,.25); border-radius:4px; padding:1px 6px; margin:2px;
+    }
+
+    /* ── Add account modal ── */
+    #add-account-modal .modal-card { max-width:420px; width:92vw; }
+    .form-field { display:flex; flex-direction:column; gap:var(--space-2); margin-bottom:var(--space-4); }
+    .form-label { font-size:12px; color:var(--text-secondary,rgba(255,255,255,.6)); }
+  </style>
+</head>
+
+<body>
+<div class="app-shell">
+
+  <!-- ======================================================
+       NAV BAR
+       ====================================================== -->
+  <nav id="nav-bar" class="nav-bar nav-transparent" role="navigation" aria-label="Main navigation">
+    <div class="flex items-center gap-4">
+      <button id="sidebar-toggle" class="btn btn-icon btn-sm" aria-label="Toggle sidebar">
+        <svg width="16" height="16" viewBox="0 0 16 16" class="icon-glass-stroke" aria-hidden="true">
+          <path d="M2 4h12M2 8h12M2 12h12"/>
+        </svg>
+      </button>
+      <a href="/" class="nav-logo" aria-label="Lucid AI Trader home">
+        <div class="nav-logo-mark" aria-hidden="true">
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+            <path d="M9 2L14.196 5V11L9 14L3.804 11V5L9 2Z" stroke="white" stroke-width="1.4" stroke-linejoin="round"/>
+            <circle cx="9" cy="8.5" r="2" fill="white" opacity="0.9"/>
+          </svg>
+        </div>
+        <span class="nav-logo-text">Lucid AI</span>
+      </a>
+    </div>
+
+    <div class="nav-center">
+      <div id="nav-session-badge" class="session-badge badge-closed" aria-live="polite">
+        <span class="dot" aria-hidden="true"></span>
+        <span class="session-name">—</span>
+      </div>
+      <span id="paper-pill" class="action-badge close" style="display:none">PAPER</span>
+    </div>
+
+    <div class="nav-right">
+      <span id="hv-indicator"   class="action-badge buy"  style="display:none;font-size:10px">HIGH VOL</span>
+      <span id="news-indicator" class="action-badge sell" style="display:none;font-size:10px">NEWS WIN</span>
+      <span id="clock" class="text-mono text-footnote text-tertiary" aria-live="polite">— : — : — —</span>
+      <div class="toggle-wrap" title="Toggle light/dark mode">
+        <div class="toggle-track" data-toggle="theme" role="switch" aria-label="Light mode" tabindex="0">
+          <div class="toggle-thumb"></div>
+        </div>
+      </div>
+      <button class="btn btn-icon btn-sm" data-open-sheet="settings-sheet" aria-label="Settings">
+        <svg width="16" height="16" viewBox="0 0 16 16" class="icon-glass-stroke" aria-hidden="true">
+          <circle cx="8" cy="8" r="2.5"/>
+          <path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.41 1.41M11.54 11.54l1.41 1.41M3.05 12.95l1.41-1.41M11.54 4.46l1.41-1.41"/>
+        </svg>
+      </button>
+    </div>
+  </nav>
+
+  <!-- ======================================================
+       SIDEBAR
+       ====================================================== -->
+  <aside id="sidebar" class="sidebar" aria-label="Dashboard sidebar">
+    <div>
+      <p class="sidebar-section-label">Today</p>
+      <div class="flex-col gap-2">
+        <div class="stat-chip"><span class="stat-chip-label">Total Signals</span><span class="stat-chip-value" id="perf-total">—</span></div>
+        <div class="stat-chip"><span class="stat-chip-label">Buy</span><span class="stat-chip-value text-buy" id="perf-buy">—</span></div>
+        <div class="stat-chip"><span class="stat-chip-label">Sell</span><span class="stat-chip-value text-sell" id="perf-sell">—</span></div>
+        <div class="stat-chip"><span class="stat-chip-label">Close</span><span class="stat-chip-value text-close-sig" id="perf-close">—</span></div>
+      </div>
+    </div>
+
+    <div>
+      <p class="sidebar-section-label">Controls</p>
+      <div class="flex-col gap-3">
+        <div class="flex items-center justify-between">
+          <span class="text-subheadline text-secondary">Pause Trading</span>
+          <div class="toggle-wrap">
+            <div class="toggle-track" data-toggle="pause" role="switch" aria-label="Pause trading" tabindex="0">
+              <div class="toggle-thumb"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <p class="sidebar-section-label">Views</p>
+      <nav aria-label="Sidebar navigation">
+        <a href="#" class="sidebar-item active" data-view-link="dashboard" aria-current="page">
+          <svg width="16" height="16" viewBox="0 0 16 16" class="icon-glass-stroke" aria-hidden="true">
+            <rect x="1" y="1" width="6" height="6" rx="1.5"/>
+            <rect x="9" y="1" width="6" height="6" rx="1.5"/>
+            <rect x="1" y="9" width="6" height="6" rx="1.5"/>
+            <rect x="9" y="9" width="6" height="6" rx="1.5"/>
+          </svg>
+          Dashboard
+        </a>
+        <a href="#" class="sidebar-item" data-view-link="signals">
+          <svg width="16" height="16" viewBox="0 0 16 16" class="icon-glass-stroke" aria-hidden="true">
+            <path d="M1 8h14M1 4h14M1 12h8"/>
+          </svg>
+          Signal Feed
+        </a>
+        <a href="#" class="sidebar-item" data-view-link="strategies">
+          <svg width="16" height="16" viewBox="0 0 16 16" class="icon-glass-stroke" aria-hidden="true">
+            <path d="M2 3h12M2 8h8M2 13h5"/>
+            <circle cx="13" cy="10.5" r="2.5"/>
+            <path d="M13 8.5v1.5l1 1"/>
+          </svg>
+          Strategies
+        </a>
+        <a href="#" class="sidebar-item" data-view-link="tradingview">
+          <svg width="16" height="16" viewBox="0 0 16 16" class="icon-glass-stroke" aria-hidden="true">
+            <rect x="1" y="2" width="14" height="10" rx="1.5"/>
+            <path d="M3 9l2.5-3 2.5 2 2.5-4 2.5 3"/>
+            <path d="M5 14h6"/>
+          </svg>
+          TradingView
+        </a>
+      </nav>
+    </div>
+  </aside>
+
+  <!-- ======================================================
+       MAIN CONTENT
+       ====================================================== -->
+  <main id="main-content" class="main-content" role="main">
+    <div class="page-inner">
+
+      <!-- ══════════════════════ VIEW: DASHBOARD ══════════════════════ -->
+      <div id="view-dashboard" class="view-panel active">
+
+        <!-- HERO -->
+        <section class="hero-section" aria-label="Session status">
+          <div class="session-status-card parallax-enabled card-3" data-stagger>
+            <div class="flex items-center justify-between" style="margin-bottom:var(--space-6)">
+              <div>
+                <p class="text-caption-1 text-tertiary" style="letter-spacing:.08em;text-transform:uppercase;margin-bottom:var(--space-2)">Current Session</p>
+                <h1 id="session-label" class="session-label-large session-closed" aria-live="polite">—</h1>
+              </div>
+              <div class="flex-col items-end gap-3">
+                <div id="trading-gate" class="trading-gate-pill gate-inactive" aria-live="polite">
+                  <div class="breathing" style="width:8px;height:8px;border-radius:50%;background:currentColor;" aria-hidden="true"></div>
+                  <span class="gate-label">Trading Inactive</span>
+                </div>
+                <div style="text-align:right">
+                  <p class="text-caption-2 text-tertiary" id="countdown-label">Next session</p>
+                  <p class="text-mono text-title-3 text-secondary" id="countdown" aria-live="polite">—:—:—</p>
+                </div>
+              </div>
+            </div>
+            <div class="flex gap-4" style="flex-wrap:wrap">
+              <div class="stat-chip" style="flex:1;min-width:120px"><span class="stat-chip-label">Signals Today</span><span class="stat-chip-value" id="perf-total-hero">—</span></div>
+              <div class="stat-chip" style="flex:1;min-width:120px"><span class="stat-chip-label">Filtered</span><span class="stat-chip-value text-tertiary" id="perf-filtered">—</span></div>
+              <div class="stat-chip" style="flex:1;min-width:120px"><span class="stat-chip-label">Mode</span><span class="stat-chip-value text-close-sig">Paper</span></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- P&L ROW -->
+        <div class="pnl-row" id="pnl-row" data-stagger>
+          <div class="pnl-card">
+            <span class="pnl-card-label">Total Trades</span>
+            <span class="pnl-card-value text-neutral" id="pnl-trades">—</span>
+            <span class="pnl-card-sub">closed positions</span>
+          </div>
+          <div class="pnl-card">
+            <span class="pnl-card-label">Net P&amp;L</span>
+            <span class="pnl-card-value" id="pnl-net">—</span>
+            <span class="pnl-card-sub" id="pnl-winrate">win rate —%</span>
+          </div>
+          <div class="pnl-card">
+            <span class="pnl-card-label">Money In</span>
+            <span class="pnl-card-value text-profit" id="pnl-in">—</span>
+            <span class="pnl-card-sub" id="pnl-winners">— winners</span>
+          </div>
+          <div class="pnl-card">
+            <span class="pnl-card-label">Money Out</span>
+            <span class="pnl-card-value text-loss" id="pnl-out">—</span>
+            <span class="pnl-card-sub" id="pnl-losers">— losers</span>
+          </div>
+        </div>
+
+        <!-- DASHBOARD GRID -->
+        <div class="dashboard-grid">
+
+          <!-- PERFORMANCE CARD -->
+          <article class="card card-2" data-stagger aria-label="Daily performance">
+            <div class="card-header">
+              <div class="flex items-center gap-3">
+                <div class="jewel jewel-sm jewel-purple" aria-hidden="true">
+                  <svg width="16" height="16" viewBox="0 0 16 16" class="icon-glass-stroke">
+                    <path d="M2 12L6 8l3 3 5-7"/><path d="M10 5h4v4"/>
+                  </svg>
+                </div>
+                <span class="text-headline">Performance</span>
+              </div>
+              <span class="text-caption-1 text-tertiary">Today</span>
+            </div>
+            <div class="card-body">
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-3)">
+                <div class="perf-card"><span class="perf-card-label">Total</span><span class="perf-card-value" id="perf-total-2">—</span><span class="perf-card-sub">signals received</span></div>
+                <div class="perf-card"><span class="perf-card-label">Buy</span><span class="perf-card-value text-buy" id="perf-buy-2">—</span><span class="perf-card-sub">long signals</span></div>
+                <div class="perf-card"><span class="perf-card-label">Sell</span><span class="perf-card-value text-sell" id="perf-sell-2">—</span><span class="perf-card-sub">short signals</span></div>
+                <div class="perf-card"><span class="perf-card-label">Close</span><span class="perf-card-value text-close-sig" id="perf-close-2">—</span><span class="perf-card-sub">exit signals</span></div>
+              </div>
+            </div>
+          </article>
+
+          <!-- TRADING SUMMARY CARD -->
+          <article class="card card-2" data-stagger aria-label="Trade summary">
+            <div class="card-header">
+              <div class="flex items-center gap-3">
+                <div class="jewel jewel-sm jewel-green" aria-hidden="true">
+                  <svg width="16" height="16" viewBox="0 0 16 16" class="icon-glass-stroke">
+                    <path d="M2 10l3-3 2.5 2.5 2.5-4 3 2.5"/>
+                    <rect x="1" y="12" width="14" height="1.5" rx=".75"/>
+                  </svg>
+                </div>
+                <span class="text-headline">Trade Summary</span>
+              </div>
+              <span class="text-caption-1 text-tertiary">All time</span>
+            </div>
+            <div class="card-body flex-col gap-3">
+              <div class="orb-level-row"><span class="orb-level-label">Net P&amp;L</span><span class="orb-level-value text-mono" id="ts-net">—</span></div>
+              <div class="orb-level-row"><span class="orb-level-label">Gross Profit</span><span class="orb-level-value text-buy text-mono" id="ts-profit">—</span></div>
+              <div class="orb-level-row"><span class="orb-level-label">Gross Loss</span><span class="orb-level-value text-sell text-mono" id="ts-loss">—</span></div>
+              <div class="orb-level-row"><span class="orb-level-label">Win Rate</span><span class="orb-level-value text-mono" id="ts-wr">—</span></div>
+              <div class="orb-level-row"><span class="orb-level-label">Total Trades</span><span class="orb-level-value text-mono" id="ts-trades">—</span></div>
+            </div>
+          </article>
+
+          <!-- SIGNAL FEED CARD -->
+          <article class="card card-2 span-3" data-stagger aria-label="Signal feed" id="signals">
+            <div class="card-header">
+              <div class="flex items-center gap-3">
+                <div class="jewel jewel-sm jewel-orange" aria-hidden="true">
+                  <svg width="16" height="16" viewBox="0 0 16 16" class="icon-glass-stroke">
+                    <path d="M8 1v14M3 5.5L8 1l5 4.5"/><path d="M1 14h14"/>
+                  </svg>
+                </div>
+                <span class="text-headline">Signal Feed</span>
+              </div>
+              <div class="input-search-wrap" style="width:200px">
+                <span class="input-search-icon" aria-hidden="true">
+                  <svg width="14" height="14" viewBox="0 0 14 14" class="icon-glass-stroke">
+                    <circle cx="6" cy="6" r="4.5"/><path d="M9.5 9.5L13 13"/>
+                  </svg>
+                </span>
+                <input type="search" class="input-search" placeholder="Search signals…" aria-label="Search signals" />
+              </div>
+            </div>
+            <div id="signal-feed" role="list" aria-live="polite" aria-label="Recent trading signals">
+              <div class="skeleton" style="height:56px;margin:var(--space-3) var(--space-5);border-radius:var(--radius-md)"></div>
+              <div class="skeleton" style="height:56px;margin:var(--space-3) var(--space-5);border-radius:var(--radius-md)"></div>
+              <div class="skeleton" style="height:56px;margin:var(--space-3) var(--space-5);border-radius:var(--radius-md)"></div>
+            </div>
+          </article>
+
+          <!-- SESSION CARD -->
+          <article class="card card-1" data-stagger aria-label="Session information">
+            <div class="card-header">
+              <div class="flex items-center gap-3">
+                <div class="jewel jewel-sm jewel-blue" aria-hidden="true">
+                  <svg width="16" height="16" viewBox="0 0 16 16" class="icon-glass-stroke">
+                    <circle cx="8" cy="8" r="6"/><path d="M8 5v3.5l2.5 1.5"/>
+                  </svg>
+                </div>
+                <span class="text-headline">Session</span>
+              </div>
+            </div>
+            <div class="card-body flex-col gap-4">
+              <div class="orb-level-row"><span class="orb-level-label">Window</span><span id="hv-text" class="text-subheadline text-secondary">—</span></div>
+              <div class="orb-level-row"><span class="orb-level-label">Globex</span><span class="text-subheadline text-secondary">20:00 – 04:00 ET</span></div>
+              <div class="orb-level-row"><span class="orb-level-label">Pre-market</span><span class="text-subheadline text-secondary">04:00 – 09:30 ET</span></div>
+              <div class="orb-level-row"><span class="orb-level-label">RTH</span><span class="text-subheadline text-buy">09:30 – 16:00 ET</span></div>
+              <div class="orb-level-row"><span class="orb-level-label">AH</span><span class="text-subheadline text-secondary">16:00 – 20:00 ET</span></div>
+              <div class="orb-level-row"><span class="orb-level-label">High Vol 1</span><span class="text-subheadline text-secondary">09:30 – 11:30 ET</span></div>
+              <div class="orb-level-row"><span class="orb-level-label">High Vol 2</span><span class="text-subheadline text-secondary">14:00 – 16:00 ET</span></div>
+            </div>
+          </article>
+
+          <!-- QUICK CONTROLS CARD -->
+          <article class="card card-1" data-stagger aria-label="Quick controls">
+            <div class="card-header">
+              <div class="flex items-center gap-3">
+                <div class="jewel jewel-sm jewel-glass" aria-hidden="true">
+                  <svg width="16" height="16" viewBox="0 0 16 16" class="icon-glass-stroke">
+                    <path d="M3 8h10M8 3v10"/><circle cx="8" cy="8" r="6"/>
+                  </svg>
+                </div>
+                <span class="text-headline">Controls</span>
+              </div>
+            </div>
+            <div class="card-body flex-col gap-5">
+              <div class="input-group">
+                <input type="text" id="webhook-url" class="input-glass" value="http://localhost:8080/tv-webhook" readonly aria-label="Webhook URL"/>
+                <label for="webhook-url" class="input-label">Webhook URL</label>
+              </div>
+              <div class="flex-col gap-3">
+                <button class="btn btn-success btn-md" style="width:100%" onclick="fetch('/api/resume',{method:'POST'})" aria-label="Resume trading">
+                  <svg width="14" height="14" viewBox="0 0 14 14" class="icon-glass-stroke" aria-hidden="true"><path d="M3 2l9 5-9 5V2Z"/></svg>
+                  Resume Trading
+                </button>
+                <button class="btn btn-destructive btn-md" style="width:100%" onclick="fetch('/api/pause',{method:'POST'})" aria-label="Pause trading">
+                  <svg width="14" height="14" viewBox="0 0 14 14" class="icon-glass-stroke" aria-hidden="true"><rect x="3" y="2" width="3" height="10" rx="1"/><rect x="8" y="2" width="3" height="10" rx="1"/></svg>
+                  Pause Trading
+                </button>
+                <button class="btn btn-secondary btn-md" style="width:100%" data-open-sheet="settings-sheet" aria-label="Open settings">
+                  <svg width="14" height="14" viewBox="0 0 14 14" class="icon-glass-stroke" aria-hidden="true"><circle cx="7" cy="7" r="2.5"/><path d="M7 1v1.5M7 11.5V13M1 7h1.5M11.5 7H13M2.75 2.75l1.06 1.06M10.19 10.19l1.06 1.06M2.75 11.25l1.06-1.06M10.19 3.81l1.06-1.06"/></svg>
+                  Settings
+                </button>
+              </div>
+            </div>
+          </article>
+
+        </div><!-- /.dashboard-grid -->
+      </div><!-- /#view-dashboard -->
+
+      <!-- ══════════════════════ VIEW: STRATEGIES ══════════════════════ -->
+      <div id="view-strategies" class="view-panel">
+        <section class="hero-section" aria-label="Strategies">
+          <div class="session-status-card card-3" data-stagger>
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-caption-1 text-tertiary" style="letter-spacing:.08em;text-transform:uppercase;margin-bottom:var(--space-2)">Analysis Engine</p>
+                <h1 class="text-title-1">Strategies</h1>
+              </div>
+              <span id="strategy-count-badge" class="action-badge buy" style="font-size:11px">— loaded</span>
+            </div>
+          </div>
+        </section>
+        <div id="strategy-grid" class="strategy-grid" role="list" aria-label="Trading strategies">
+          <div class="skeleton" style="height:140px;border-radius:var(--radius-lg)"></div>
+          <div class="skeleton" style="height:140px;border-radius:var(--radius-lg)"></div>
+          <div class="skeleton" style="height:140px;border-radius:var(--radius-lg)"></div>
+          <div class="skeleton" style="height:140px;border-radius:var(--radius-lg)"></div>
+          <div class="skeleton" style="height:140px;border-radius:var(--radius-lg)"></div>
+          <div class="skeleton" style="height:140px;border-radius:var(--radius-lg)"></div>
+        </div>
+      </div><!-- /#view-strategies -->
+
+      <!-- ══════════════════════ VIEW: TRADINGVIEW ══════════════════════ -->
+      <div id="view-tradingview" class="view-panel">
+        <div class="tv-view-layout">
+
+          <!-- Account bar -->
+          <div class="tv-account-bar">
+            <svg width="14" height="14" viewBox="0 0 14 14" class="icon-glass-stroke" style="opacity:.6"><circle cx="7" cy="5" r="3"/><path d="M1 13c0-3.3 2.7-6 6-6s6 2.7 6 6"/></svg>
+            <span class="tv-control-label">Accounts</span>
+            <div id="tv-account-list" class="flex gap-2 flex-wrap" style="flex:1">
+              <!-- populated by JS -->
+            </div>
+            <button class="btn btn-secondary btn-sm" id="btn-add-account" style="white-space:nowrap" aria-label="Add TradingView account">
+              <svg width="12" height="12" viewBox="0 0 12 12" class="icon-glass-stroke" aria-hidden="true"><path d="M6 1v10M1 6h10"/></svg>
+              Add Account
+            </button>
+            <button class="btn btn-primary btn-sm" id="btn-tv-login" style="white-space:nowrap" title="Opens tradingview.com so you can log in — your session is shared with the embedded chart">
+              <svg width="12" height="12" viewBox="0 0 12 12" class="icon-glass-stroke" aria-hidden="true"><path d="M7 1h4v4M11 1L6 6M5 2H2a1 1 0 00-1 1v7a1 1 0 001 1h7a1 1 0 001-1V8"/></svg>
+              Sign In to TV
+            </button>
+          </div>
+
+          <!-- Chart control bar -->
+          <div class="tv-control-bar">
+            <span class="tv-control-label">Symbol</span>
+            <input id="tv-symbol-input" class="input-glass" type="text" value="CME_MINI:MES1!" placeholder="e.g. CME_MINI:MNQ1!" style="width:160px"/>
+            <span class="tv-control-label" style="margin-left:var(--space-3)">Interval</span>
+            <select id="tv-interval-select" class="input-glass">
+              <option value="1">1m</option>
+              <option value="3">3m</option>
+              <option value="5" selected>5m</option>
+              <option value="15">15m</option>
+              <option value="30">30m</option>
+              <option value="60">1H</option>
+              <option value="240">4H</option>
+              <option value="D">1D</option>
+            </select>
+            <span class="tv-control-label" style="margin-left:var(--space-3)">Style</span>
+            <select id="tv-style-select" class="input-glass">
+              <option value="1" selected>Candles</option>
+              <option value="8">Heikin Ashi</option>
+              <option value="2">Line</option>
+              <option value="3">Area</option>
+              <option value="0">Bars</option>
+            </select>
+            <div style="flex:1"></div>
+            <button class="btn btn-primary btn-sm" id="btn-tv-apply">Apply</button>
+            <button class="btn btn-secondary btn-sm" id="btn-tv-fullscreen" title="Fullscreen chart">
+              <svg width="13" height="13" viewBox="0 0 13 13" class="icon-glass-stroke" aria-hidden="true">
+                <path d="M1 4V1h3M9 1h3v3M12 9v3H9M4 12H1V9"/>
+              </svg>
+            </button>
+          </div>
+
+          <!-- Chart container -->
+          <div class="tv-chart-wrap" id="tv-chart-wrap">
+            <div id="tv-chart"></div>
+          </div>
+        </div>
+      </div><!-- /#view-tradingview -->
+
+    </div><!-- /.page-inner -->
+  </main>
+
+  <!-- ======================================================
+       MODAL OVERLAY
+       ====================================================== -->
+  <div id="modal-overlay" class="modal-overlay" aria-hidden="true"></div>
+
+  <!-- SIGNAL DETAIL MODAL -->
+  <div id="signal-modal" class="center-modal" role="dialog" aria-modal="true" aria-label="Signal detail">
+    <div class="modal-card">
+      <div class="flex items-center justify-between" style="margin-bottom:var(--space-6)">
+        <h2 class="text-title-2">Signal Detail</h2>
+        <button class="btn btn-icon btn-sm" data-close-modal aria-label="Close modal">
+          <svg width="12" height="12" viewBox="0 0 12 12" class="icon-glass-stroke" aria-hidden="true"><path d="M1 1l10 10M11 1L1 11"/></svg>
+        </button>
+      </div>
+      <div id="signal-detail-content"></div>
+    </div>
+  </div>
+
+  <!-- STRATEGY DETAIL MODAL -->
+  <div id="strategy-detail-modal" class="center-modal" role="dialog" aria-modal="true" aria-label="Strategy detail">
+    <div class="modal-card">
+      <div class="flex items-center justify-between" style="margin-bottom:var(--space-5)">
+        <div>
+          <h2 class="text-title-2" id="sd-title">Strategy</h2>
+          <p class="text-caption-1 text-tertiary" id="sd-file" style="margin-top:4px"></p>
+        </div>
+        <button class="btn btn-icon btn-sm" data-close-modal aria-label="Close"><svg width="12" height="12" viewBox="0 0 12 12" class="icon-glass-stroke" aria-hidden="true"><path d="M1 1l10 10M11 1L1 11"/></svg></button>
+      </div>
+      <div id="sd-content"><!-- populated by JS --></div>
+    </div>
+  </div>
+
+  <!-- ADD ACCOUNT MODAL -->
+  <div id="add-account-modal" class="center-modal" role="dialog" aria-modal="true" aria-label="Add TradingView account">
+    <div class="modal-card">
+      <div class="flex items-center justify-between" style="margin-bottom:var(--space-5)">
+        <h2 class="text-title-2">Add TradingView Account</h2>
+        <button class="btn btn-icon btn-sm" data-close-modal aria-label="Close"><svg width="12" height="12" viewBox="0 0 12 12" class="icon-glass-stroke" aria-hidden="true"><path d="M1 1l10 10M11 1L1 11"/></svg></button>
+      </div>
+      <p class="text-caption-1 text-secondary" style="margin-bottom:var(--space-5)">
+        Store a TradingView profile with chart preferences. To actually sign in, click <strong>Sign In to TV</strong> above — the embedded chart uses your browser's TradingView session automatically.
+      </p>
+      <div class="form-field">
+        <label class="form-label" for="acc-username">TradingView Username</label>
+        <input type="text" id="acc-username" class="input-glass" placeholder="@yourhandle" style="width:100%;padding:8px 12px;border-radius:8px"/>
+      </div>
+      <div class="form-field">
+        <label class="form-label" for="acc-display">Display Name</label>
+        <input type="text" id="acc-display" class="input-glass" placeholder="My Main Account" style="width:100%;padding:8px 12px;border-radius:8px"/>
+      </div>
+      <div class="form-field">
+        <label class="form-label" for="acc-symbol">Default Symbol</label>
+        <input type="text" id="acc-symbol" class="input-glass" placeholder="CME_MINI:MES1!" style="width:100%;padding:8px 12px;border-radius:8px"/>
+      </div>
+      <div class="form-field">
+        <label class="form-label" for="acc-interval">Default Interval</label>
+        <select id="acc-interval" class="input-glass" style="width:100%;padding:8px 12px;border-radius:8px">
+          <option value="1">1m</option><option value="3">3m</option><option value="5" selected>5m</option>
+          <option value="15">15m</option><option value="30">30m</option><option value="60">1H</option>
+          <option value="240">4H</option><option value="D">1D</option>
+        </select>
+      </div>
+      <div class="flex gap-3" style="margin-top:var(--space-5)">
+        <button class="btn btn-primary btn-md" style="flex:1" id="btn-save-account">Save Account</button>
+        <button class="btn btn-secondary btn-md" data-close-modal>Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SETTINGS SHEET -->
+  <div id="settings-sheet" class="bottom-sheet" role="dialog" aria-modal="true" aria-label="Settings">
+    <div class="sheet-handle" aria-hidden="true"></div>
+    <h2 class="sheet-title">Settings</h2>
+    <div class="flex-col gap-6">
+      <div>
+        <p class="sidebar-section-label" style="margin-bottom:var(--space-4)">Appearance</p>
+        <div class="flex items-center justify-between">
+          <div><p class="text-body">Light Mode</p><p class="text-caption-1 text-tertiary">Switch to light theme</p></div>
+          <div class="toggle-wrap"><div class="toggle-track" data-toggle="theme" role="switch" tabindex="0"><div class="toggle-thumb"></div></div></div>
+        </div>
+      </div>
+      <div class="divider" role="separator"></div>
+      <div>
+        <p class="sidebar-section-label" style="margin-bottom:var(--space-4)">Trading</p>
+        <div class="flex items-center justify-between" style="margin-bottom:var(--space-5)">
+          <div><p class="text-body">Pause Execution</p><p class="text-caption-1 text-tertiary">Stop all automated order routing</p></div>
+          <div class="toggle-wrap"><div class="toggle-track" data-toggle="pause" role="switch" tabindex="0"><div class="toggle-thumb"></div></div></div>
+        </div>
+      </div>
+      <div class="divider" role="separator"></div>
+      <div>
+        <p class="sidebar-section-label" style="margin-bottom:var(--space-4)">System</p>
+        <div class="flex-col gap-3">
+          <div class="flex items-center justify-between"><span class="text-subheadline text-secondary">Webhook receiver</span><span class="text-mono text-caption-1 text-tertiary">:8080</span></div>
+          <div class="flex items-center justify-between"><span class="text-subheadline text-secondary">Dashboard</span><span class="text-mono text-caption-1 text-tertiary">:8080</span></div>
+          <div class="flex items-center justify-between"><span class="text-subheadline text-secondary">Poll interval</span><span class="text-mono text-caption-1 text-tertiary">5 s</span></div>
+        </div>
+      </div>
+      <div class="divider" role="separator"></div>
+      <div style="background:rgba(255,159,10,.08);border:1px solid rgba(255,159,10,.20);border-radius:var(--radius-md);padding:var(--space-4)">
+        <p class="text-caption-1" style="color:var(--color-close)">⚠ Lucid AI Trader is for educational use only. Futures trading carries substantial risk.</p>
+      </div>
+      <button class="btn btn-secondary btn-md" style="width:100%" data-close-modal>Done</button>
+    </div>
+  </div>
+
+  <!-- TOAST STACK -->
+  <div id="toast-stack" class="toast-stack" role="status" aria-live="polite"></div>
+
+</div><!-- /.app-shell -->
+
+<!-- TradingView widget library -->
+<script src="https://s3.tradingview.com/tv.js"></script>
+<script src="/static/js/app.js"></script>
+
+<!-- Mirror perf stats to hero + sidebar -->
+<script>
+setInterval(() => {
+  ['total','buy','sell','close'].forEach(k => {
+    const src  = document.getElementById(`perf-${k}`);
+    const dst1 = document.getElementById(`perf-${k}-2`);
+    const dst2 = document.getElementById(`perf-${k}-hero`);
+    if (src && dst1) dst1.textContent = src.textContent;
+    if (src && dst2) dst2.textContent = src.textContent;
+  });
+}, 500);
+</script>
+</body>
+</html>
