@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+venv/
+
+# Next.js
+.next/
+out/
+
+# Production
+build/
+
+# Environment
+.env
+.env.local
+.env*.local
+
+# Convex
+.convex/
+
+# Python artifacts (kept for reference, not needed for new stack)
+__pycache__/
+*.pyc
+*.pyo
+
+# Logs
+logs/
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+
+# clerk configuration (can include secrets)
+/.clerk/
