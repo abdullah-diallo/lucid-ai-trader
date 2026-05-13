@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@/convex/_generated/api";
 import * as brokerRegistry from "@/lib/broker-registry";
@@ -7,15 +6,16 @@ import * as brokerRegistry from "@/lib/broker-registry";
 const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
 export async function POST(req: NextRequest) {
-  const { userId } = await auth();
-  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  const { symbol, action, price, reason } = await req.json() as {
+  const body = await req.json() as {
+    userId: string;
     symbol: string;
     action: "BUY" | "SELL" | "CLOSE";
     price?: number;
     reason?: string;
   };
+
+  const { userId, symbol, action, price, reason } = body;
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const signalId = await convex.mutation(api.signals.add, {
     userId,

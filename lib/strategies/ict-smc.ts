@@ -26,18 +26,21 @@ export function analyzeIctSmc(candles: Candle[]): SignalResult | null {
   const now = new Date();
   const killzone = isKillzone(now.getHours(), now.getMinutes());
   const fvg = detectFairValueGap(candles);
-
   const swingHigh = highestHigh(candles.slice(-20), 20);
   const swingLow = lowestLow(candles.slice(-20), 20);
 
-  // Full ICT model: killzone + FVG + structure
-  if (killzone && fvg) {
+  // FVG + structure is the core signal; killzone boosts confidence when live
+  if (fvg) {
+    const inKillzone = killzone !== null;
+    const baseConfidence = inKillzone ? 0.82 : 0.70;
+    const kzLabel = inKillzone ? ` during ${killzone} killzone` : "";
+
     if (fvg.direction === "BULLISH" && isBullish(current)) {
       return {
         setupType: "ICT_BULLISH_FVG",
         direction: "BULLISH",
-        confidence: 0.82,
-        reason: `ICT model: bullish FVG at ${fvg.level.toFixed(2)} during ${killzone} killzone`,
+        confidence: baseConfidence,
+        reason: `ICT model: bullish FVG at ${fvg.level.toFixed(2)}${kzLabel}`,
         entryPrice: current.close,
         stopPrice: fvg.level - atrVal,
         target1: swingHigh,
@@ -49,8 +52,8 @@ export function analyzeIctSmc(candles: Candle[]): SignalResult | null {
       return {
         setupType: "ICT_BEARISH_FVG",
         direction: "BEARISH",
-        confidence: 0.82,
-        reason: `ICT model: bearish FVG at ${fvg.level.toFixed(2)} during ${killzone} killzone`,
+        confidence: baseConfidence,
+        reason: `ICT model: bearish FVG at ${fvg.level.toFixed(2)}${kzLabel}`,
         entryPrice: current.close,
         stopPrice: fvg.level + atrVal,
         target1: swingLow,

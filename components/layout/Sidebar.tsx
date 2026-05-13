@@ -1,20 +1,21 @@
 "use client";
 
 import { useQuery, useMutation } from "convex/react";
-import { useUser } from "@clerk/nextjs";
 import { api } from "@/convex/_generated/api";
+import { useCurrentUserId } from "@/hooks/useCurrentUserId";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
-  LayoutDashboard, Zap, ArrowLeftRight, LineChart, BarChart3, FlaskConical, MessageSquare, Pause, Play,
+  LayoutDashboard, Zap, ArrowLeftRight, LineChart, BarChart3, FlaskConical, MessageSquare, Pause, Play, Globe,
 } from "lucide-react";
 
-type View = "dashboard" | "strategies" | "brokers" | "tradingview" | "performance" | "backtest" | "chat";
+type View = "dashboard" | "strategies" | "brokers" | "tradingview" | "performance" | "backtest" | "chat" | "markets";
 
 const NAV_ITEMS: { view: View; label: string; icon: React.ElementType }[] = [
   { view: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { view: "strategies", label: "Strategies", icon: Zap },
-  { view: "brokers", label: "Brokers", icon: ArrowLeftRight },
+  { view: "markets", label: "Pairs", icon: Globe },
+  { view: "brokers", label: "Trading Accounts", icon: ArrowLeftRight },
   { view: "tradingview", label: "Chart", icon: LineChart },
   { view: "performance", label: "Performance", icon: BarChart3 },
   { view: "backtest", label: "Backtest", icon: FlaskConical },
@@ -27,8 +28,7 @@ interface Props {
 }
 
 export function Sidebar({ activeView, onViewChange }: Props) {
-  const { user } = useUser();
-  const userId = user?.id ?? "";
+  const userId = useCurrentUserId();
 
   const state = useQuery(api.tradingState.get, userId ? { userId } : "skip");
   const pnlStats = useQuery(api.trades.getPnlStats, userId ? { userId, dateRange: "today" } : "skip");

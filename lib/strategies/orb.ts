@@ -9,15 +9,15 @@ interface OrbRange {
 
 export function calculateOrbRange(candles: Candle[]): OrbRange | null {
   if (candles.length < 6) return null;
-  // First 6 candles = first 30 minutes on 5m chart
-  const orbCandles = candles.slice(0, 6);
+  // First 3 candles = first 15 minutes on 5m chart
+  const orbCandles = candles.slice(0, 3);
   const high = Math.max(...orbCandles.map((c) => c.high));
   const low = Math.min(...orbCandles.map((c) => c.low));
   return { high, low, midpoint: (high + low) / 2 };
 }
 
 export function analyzeOrb(candles: Candle[]): SignalResult | null {
-  if (candles.length < 8) return null;
+  if (candles.length < 5) return null;
   const orb = calculateOrbRange(candles);
   if (!orb) return null;
 

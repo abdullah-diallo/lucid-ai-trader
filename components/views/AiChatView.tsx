@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery, useMutation } from "convex/react";
-import { useUser } from "@clerk/nextjs";
+import { useCurrentUserId } from "@/hooks/useCurrentUserId";
 import { api } from "@/convex/_generated/api";
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
@@ -10,8 +10,7 @@ import { MessageSquare, Plus, Send, Bot, User } from "lucide-react";
 import type { Id } from "@/convex/_generated/dataModel";
 
 export function AiChatView() {
-  const { user } = useUser();
-  const userId = user?.id ?? "";
+  const userId = useCurrentUserId();
 
   const sessions = useQuery(api.chat.listSessions, userId ? { userId } : "skip");
   const [activeSessionId, setActiveSessionId] = useState<Id<"chatSessions"> | null>(null);

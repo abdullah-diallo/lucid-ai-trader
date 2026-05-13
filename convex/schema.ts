@@ -1,7 +1,9 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
+import { authTables } from "@convex-dev/auth/server";
 
 export default defineSchema({
+  ...authTables,
   signals: defineTable({
     userId: v.string(),
     symbol: v.string(),
@@ -103,6 +105,12 @@ export default defineSchema({
     role: v.union(v.literal("user"), v.literal("assistant")),
     content: v.string(),
   }).index("by_session", ["sessionId"]),
+
+  tradeablePairs: defineTable({
+    userId: v.string(),
+    symbol: v.string(),
+    enabled: v.boolean(),
+  }).index("by_user", ["userId"]),
 
   tradingState: defineTable({
     userId: v.string(),

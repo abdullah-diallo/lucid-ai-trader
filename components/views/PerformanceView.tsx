@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "convex/react";
-import { useUser } from "@clerk/nextjs";
+import { useCurrentUserId } from "@/hooks/useCurrentUserId";
 import { api } from "@/convex/_generated/api";
 import { STRATEGY_REGISTRY } from "@/convex/strategies";
 import { cn } from "@/lib/utils";
@@ -17,8 +17,7 @@ const DATE_RANGES: { label: string; value: DateRange }[] = [
 ];
 
 export function PerformanceView() {
-  const { user } = useUser();
-  const userId = user?.id ?? "";
+  const userId = useCurrentUserId();
   const [dateRange, setDateRange] = useState<DateRange>("week");
 
   const pnl = useQuery(api.trades.getPnlStats, userId ? { userId, dateRange } : "skip");

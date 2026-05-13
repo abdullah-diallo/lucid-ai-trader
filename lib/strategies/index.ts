@@ -19,6 +19,9 @@ export { analyzeReversal } from "./reversal";
 export { analyzeAmd } from "./amd";
 export { analyzeIctSmc } from "./ict-smc";
 export { analyzeConfluence } from "./confluence";
+export { analyzeHighConviction } from "./high-conviction";
+export { analyzeProbability } from "./probability";
+export { analyzeNewsSentiment } from "./news-sentiment";
 
 import type { Candle, SignalResult } from "../types";
 import { analyzeOrb } from "./orb";
@@ -42,6 +45,9 @@ import { analyzeReversal } from "./reversal";
 import { analyzeAmd } from "./amd";
 import { analyzeIctSmc } from "./ict-smc";
 import { analyzeConfluence } from "./confluence";
+import { analyzeHighConviction } from "./high-conviction";
+import { analyzeProbability } from "./probability";
+import { analyzeNewsSentiment } from "./news-sentiment";
 
 const STRATEGY_MAP: Record<string, (candles: Candle[]) => SignalResult | null> = {
   ORB: analyzeOrb,
@@ -65,6 +71,9 @@ const STRATEGY_MAP: Record<string, (candles: Candle[]) => SignalResult | null> =
   AMD: analyzeAmd,
   ICT_SMC: analyzeIctSmc,
   CONFLUENCE: analyzeConfluence,
+  HIGH_CONVICTION: analyzeHighConviction,
+  PROBABILITY: analyzeProbability,
+  NEWS_SENTIMENT: analyzeNewsSentiment,
 };
 
 export function runStrategy(strategyId: string, candles: Candle[]): SignalResult | null {

@@ -13,7 +13,7 @@ export function analyzeVwap(candles: Candle[]): SignalResult | null {
   const crossedAbove = prev.close < vwapVal && current.close > vwapVal;
   const crossedBelow = prev.close > vwapVal && current.close < vwapVal;
 
-  if (crossedAbove && isBullish(current) && proximity < 0.3) {
+  if (crossedAbove && isBullish(current) && proximity < 2.0) {
     return {
       setupType: "VWAP_RECLAIM_LONG",
       direction: "BULLISH",
@@ -26,7 +26,7 @@ export function analyzeVwap(candles: Candle[]): SignalResult | null {
     };
   }
 
-  if (crossedBelow && isBearish(current) && proximity < 0.3) {
+  if (crossedBelow && isBearish(current) && proximity < 2.0) {
     return {
       setupType: "VWAP_REJECTION_SHORT",
       direction: "BEARISH",

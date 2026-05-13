@@ -1,16 +1,73 @@
 "use client";
 
 import { useState } from "react";
+import { cn } from "@/lib/utils";
 import { STRATEGY_REGISTRY } from "@/convex/strategies";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 import type { BacktestResult } from "@/lib/types";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { FlaskConical } from "lucide-react";
 
+// Only strategies that require session-time context are hidden from Daily
+const INTRADAY_ONLY = new Set(["ORB", "ASIA_RANGE", "NEWS_SPIKE", "SCALPING"]);
+
+const TIMEFRAMES = [
+  { value: "1d", label: "Daily", note: "Any date range — best for swing strategies" },
+  { value: "1h", label: "1-Hour", note: "Up to 2 years of data — works for all strategies" },
+  { value: "15m", label: "15-Min", note: "Last 60 days max — best for intraday strategies" },
+] as const;
+
+type Timeframe = typeof TIMEFRAMES[number]["value"];
+
+const TV_SYMBOLS = [
+  { tv: "MES1!", label: "MES1! — Micro E-mini S&P 500" },
+  { tv: "MNQ1!", label: "MNQ1! — Micro Nasdaq" },
+  { tv: "M2K1!", label: "M2K1! — Micro Russell 2000" },
+  { tv: "MYM1!", label: "MYM1! — Micro Dow Jones" },
+  { tv: "MGC1!", label: "MGC1! — Micro Gold" },
+  { tv: "MCL1!", label: "MCL1! — Micro Crude Oil" },
+  { tv: "ES1!", label: "ES1! — E-mini S&P 500" },
+  { tv: "NQ1!", label: "NQ1! — Nasdaq Futures" },
+  { tv: "RTY1!", label: "RTY1! — Russell 2000 Futures" },
+  { tv: "YM1!", label: "YM1! — Dow Jones Futures" },
+  { tv: "GC1!", label: "GC1! — Gold Futures" },
+  { tv: "SI1!", label: "SI1! — Silver Futures" },
+  { tv: "CL1!", label: "CL1! — Crude Oil Futures" },
+  { tv: "NG1!", label: "NG1! — Natural Gas" },
+  { tv: "ZB1!", label: "ZB1! — 30Y Treasury Bond" },
+  { tv: "ZN1!", label: "ZN1! — 10Y Treasury Note" },
+  { tv: "SPY", label: "SPY — S&P 500 ETF" },
+  { tv: "QQQ", label: "QQQ — Nasdaq ETF" },
+  { tv: "AAPL", label: "AAPL — Apple" },
+  { tv: "TSLA", label: "TSLA — Tesla" },
+  { tv: "NVDA", label: "NVDA — Nvidia" },
+  { tv: "MSFT", label: "MSFT — Microsoft" },
+  { tv: "AMZN", label: "AMZN — Amazon" },
+  { tv: "EURUSD", label: "EURUSD — Euro / USD" },
+  { tv: "GBPUSD", label: "GBPUSD — GBP / USD" },
+  { tv: "USDJPY", label: "USDJPY — USD / JPY" },
+];
+
+function defaultDates(tf: Timeframe): { start: string; end: string } {
+  const end = new Date();
+  const start = new Date();
+  if (tf === "15m") {
+    start.setDate(start.getDate() - 55);
+  } else if (tf === "1h") {
+    start.setFullYear(start.getFullYear() - 1);
+  } else {
+    start.setFullYear(start.getFullYear() - 1);
+  }
+  return {
+    start: start.toISOString().slice(0, 10),
+    end: end.toISOString().slice(0, 10),
+  };
+}
+
 export function BacktestView() {
-  const [strategyId, setStrategyId] = useState("ORB");
-  const [symbol, setSymbol] = useState("SPY");
+  const [timeframe, setTimeframe] = useState<Timeframe>("1d");
+  const [strategyId, setStrategyId] = useState("BREAKOUT");
+  const [symbol, setSymbol] = useState("MES1!");
   const [start, setStart] = useState("2024-01-01");
   const [end, setEnd] = useState("2024-12-31");
   const [balance, setBalance] = useState("100000");
@@ -18,6 +75,23 @@ export function BacktestView() {
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<BacktestResult | null>(null);
   const [error, setError] = useState("");
+
+  const availableStrategies = timeframe === "1d"
+    ? STRATEGY_REGISTRY.filter((s) => !INTRADAY_ONLY.has(s.id))
+    : STRATEGY_REGISTRY;
+
+  function handleTimeframeChange(tf: Timeframe) {
+    setTimeframe(tf);
+    setResult(null);
+    setError("");
+    const dates = defaultDates(tf);
+    setStart(dates.start);
+    setEnd(dates.end);
+    // Only reset if current strategy isn't available on the new timeframe
+    if (tf === "1d" && INTRADAY_ONLY.has(strategyId)) {
+      setStrategyId("BREAKOUT");
+    }
+  }
 
   async function runBacktest() {
     setRunning(true);
@@ -27,7 +101,7 @@ export function BacktestView() {
       const res = await fetch("/api/backtest", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ strategyId, symbol, start, end, startingBalance: Number(balance), qty: Number(qty) }),
+        body: JSON.stringify({ strategyId, symbol, start, end, startingBalance: Number(balance), qty: Number(qty), timeframe }),
       });
       const data = await res.json();
       if (data.error) setError(data.error);
@@ -40,6 +114,7 @@ export function BacktestView() {
   }
 
   const equityData = result?.equityCurve.map((val, i) => ({ bar: i, equity: val })) ?? [];
+  const tfMeta = TIMEFRAMES.find((t) => t.value === timeframe)!;
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 h-full">
@@ -50,33 +125,76 @@ export function BacktestView() {
           Backtest Setup
         </h3>
 
-        <div className="space-y-2">
-          <label className="text-xs text-muted-foreground">Strategy</label>
+        {/* Timeframe selector */}
+        <div className="space-y-1.5">
+          <label className="text-xs text-muted-foreground">Timeframe</label>
+          <div className="grid grid-cols-3 gap-1">
+            {TIMEFRAMES.map(({ value, label }) => (
+              <button
+                key={value}
+                onClick={() => handleTimeframeChange(value)}
+                className={cn(
+                  "py-1.5 rounded-lg text-xs font-semibold transition-colors",
+                  timeframe === value
+                    ? "bg-primary text-white"
+                    : "bg-white/5 text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <p className="text-xs text-muted-foreground">{tfMeta.note}</p>
+        </div>
+
+        <div className="space-y-1">
+          <label className="text-xs text-muted-foreground">
+            Strategy <span className="text-muted-foreground/60">— {availableStrategies.length} available</span>
+          </label>
+          <div className="max-h-44 overflow-y-auto space-y-0.5 pr-0.5 scrollbar-thin">
+            {availableStrategies.map((s) => (
+              <button
+                key={s.id}
+                onClick={() => setStrategyId(s.id)}
+                className={cn(
+                  "w-full text-left px-3 py-2 rounded-lg transition-colors",
+                  strategyId === s.id
+                    ? "bg-primary/20 border border-primary/40 text-foreground"
+                    : "bg-white/3 border border-transparent text-muted-foreground hover:text-foreground hover:bg-white/5"
+                )}
+              >
+                <p className="text-xs font-semibold leading-tight">{s.name}</p>
+                <p className="text-xs opacity-50 leading-tight mt-0.5 truncate">{s.description}</p>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="space-y-1">
+          <label className="text-xs text-muted-foreground">Symbol</label>
           <select
-            value={strategyId}
-            onChange={(e) => setStrategyId(e.target.value)}
+            value={symbol}
+            onChange={(e) => setSymbol(e.target.value)}
             className="w-full bg-input border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
           >
-            {STRATEGY_REGISTRY.map((s) => (
-              <option key={s.id} value={s.id}>{s.name}</option>
+            {TV_SYMBOLS.map(({ tv, label }) => (
+              <option key={tv} value={tv}>{label}</option>
             ))}
           </select>
         </div>
 
         {[
-          { label: "Symbol", value: symbol, setter: setSymbol, placeholder: "SPY, QQQ, MES1!" },
           { label: "Start Date", value: start, setter: setStart, type: "date" },
           { label: "End Date", value: end, setter: setEnd, type: "date" },
           { label: "Starting Balance ($)", value: balance, setter: setBalance, type: "number" },
           { label: "Contracts / Qty", value: qty, setter: setQty, type: "number" },
-        ].map(({ label, value, setter, placeholder, type }) => (
+        ].map(({ label, value, setter, type }) => (
           <div key={label} className="space-y-1">
             <label className="text-xs text-muted-foreground">{label}</label>
             <input
-              type={type ?? "text"}
+              type={type}
               value={value}
               onChange={(e) => setter(e.target.value)}
-              placeholder={placeholder}
               className="w-full bg-input border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
             />
           </div>
@@ -93,7 +211,6 @@ export function BacktestView() {
       <div className="lg:col-span-2 space-y-4">
         {result ? (
           <>
-            {/* Metrics */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               {[
                 { label: "Net P&L", value: `$${result.metrics.netPnl.toFixed(2)}`, pos: result.metrics.netPnl >= 0 },
@@ -108,7 +225,6 @@ export function BacktestView() {
               ))}
             </div>
 
-            {/* Equity Curve */}
             <div className="glass rounded-2xl p-4">
               <h3 className="text-sm font-semibold mb-3">Equity Curve</h3>
               <ResponsiveContainer width="100%" height={200}>
@@ -121,7 +237,6 @@ export function BacktestView() {
               </ResponsiveContainer>
             </div>
 
-            {/* Trades Table */}
             <div className="glass rounded-2xl overflow-hidden">
               <div className="px-4 py-3 border-b border-border">
                 <h3 className="text-sm font-semibold">Trades ({result.trades.length})</h3>

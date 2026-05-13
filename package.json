@@ -11,7 +11,8 @@
     "convex:deploy": "convex deploy"
   },
   "dependencies": {
-    "@clerk/nextjs": "^6.0.0",
+    "@auth/core": "^0.37.4",
+    "@convex-dev/auth": "^0.0.92",
     "@convex-dev/react-query": "^0.0.0-alpha.5",
     "@radix-ui/react-dialog": "^1.1.2",
     "@radix-ui/react-dropdown-menu": "^2.1.2",

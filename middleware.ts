@@ -1,14 +1,20 @@
-import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
+import {
+  convexAuthNextjsMiddleware,
+  createRouteMatcher,
+  isAuthenticatedNextjs,
+  nextjsMiddlewareRedirect,
+} from "@convex-dev/auth/nextjs/server";
 
 const isPublicRoute = createRouteMatcher([
+  "/",
   "/login(.*)",
   "/api/webhook/tradingview(.*)",
   "/api/telegram/webhook(.*)",
 ]);
 
-export default clerkMiddleware(async (auth, req) => {
-  if (!isPublicRoute(req)) {
-    await auth.protect();
+export default convexAuthNextjsMiddleware(async (request) => {
+  if (!isPublicRoute(request) && !(await isAuthenticatedNextjs())) {
+    return nextjsMiddlewareRedirect(request, "/login");
   }
 });
 

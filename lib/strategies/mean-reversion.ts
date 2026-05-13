@@ -11,8 +11,8 @@ export function analyzeMeanReversion(candles: Candle[]): SignalResult | null {
   const rsiVal = rsi(candles, 14);
   const deviation = (current.close - mean) / atrVal;
 
-  // Oversold: price far below mean, RSI < 30
-  if (deviation < -2.5 && rsiVal < 35 && isBullish(current)) {
+  // Oversold: price far below mean, RSI oversold
+  if (deviation < -1.5 && rsiVal < 40 && isBullish(current)) {
     return {
       setupType: "MEAN_REVERSION_LONG",
       direction: "BULLISH",
@@ -25,8 +25,8 @@ export function analyzeMeanReversion(candles: Candle[]): SignalResult | null {
     };
   }
 
-  // Overbought: price far above mean, RSI > 70
-  if (deviation > 2.5 && rsiVal > 65 && isBearish(current)) {
+  // Overbought: price far above mean, RSI overbought
+  if (deviation > 1.5 && rsiVal > 60 && isBearish(current)) {
     return {
       setupType: "MEAN_REVERSION_SHORT",
       direction: "BEARISH",

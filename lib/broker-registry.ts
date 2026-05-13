@@ -3,8 +3,26 @@ import * as tradovate from "./tradovate";
 
 // ── Paper Broker (in-memory) ──────────────────────────────────────────────────
 class PaperBroker {
+  private startingBalance = 100_000;
   private balance = 100_000;
+  private connected = true;
   private positions = new Map<string, { qty: number; side: "Long" | "Short"; entryPrice: number }>();
+
+  connect() { this.connected = true; }
+  disconnect() { this.connected = false; }
+  isConnected() { return this.connected; }
+  getStartingBalance() { return this.startingBalance; }
+
+  setBalance(amount: number) {
+    this.startingBalance = amount;
+    this.balance = amount;
+    this.positions.clear();
+  }
+
+  reset() {
+    this.balance = this.startingBalance;
+    this.positions.clear();
+  }
 
   async placeOrder(symbol: string, qty: number, action: "Buy" | "Sell"): Promise<OrderResult> {
     this.positions.set(symbol, {
@@ -20,9 +38,7 @@ class PaperBroker {
     return { ok: true, message: `[PAPER] Closed ${symbol}` };
   }
 
-  async getBalance(): Promise<number> {
-    return this.balance;
-  }
+  async getBalance(): Promise<number> { return this.balance; }
 
   async getPositions(): Promise<Position[]> {
     return Array.from(this.positions.entries()).map(([symbol, p]) => ({
@@ -102,6 +118,19 @@ export async function listAll(): Promise<BrokerStatus[]> {
 }
 
 export function getActiveName(): BrokerName { return activeBroker; }
+
+export function connectPaper() { paper.connect(); activeBroker = "paper"; }
+export function disconnectPaper() { paper.disconnect(); if (activeBroker === "paper") activeBroker = "paper"; }
+export function setPaperBalance(amount: number) { paper.setBalance(amount); }
+export function resetPaper() { paper.reset(); }
+export async function getPaperStatus() {
+  return {
+    connected: paper.isConnected(),
+    balance: await paper.getBalance(),
+    startingBalance: paper.getStartingBalance(),
+    positions: await paper.getPositions(),
+  };
+}
 
 export async function connect(
   name: BrokerName,
