@@ -123,6 +123,9 @@ class BreakRetestStrategy:
 
     def detect_break_retest(self, df: pd.DataFrame, key_levels: list, context: dict) -> list:
         """Find clean break, timely retest, and rejection entries against key levels."""
+        from analysis.utils import validate_dataframe
+        if not validate_dataframe(df, min_bars=30, caller="strategy_break_retest.detect_break_retest"):
+            return []
         try:
             data = _to_eastern_idx(df)
             if data.empty:

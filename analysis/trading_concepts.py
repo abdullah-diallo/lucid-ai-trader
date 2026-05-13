@@ -406,25 +406,37 @@ class LiquidityAnalyzer:
 class FVGAnalyzer:
     """Detects fair value gaps and inverse fair value gaps."""
 
-    def detect_fvgs(self, df: pd.DataFrame, timeframe: str) -> list:
+    def detect_fvgs(self, df: pd.DataFrame, timeframe: str,
+                    instrument: str = "MES") -> list:
         """Find bullish/bearish 3-candle imbalances and fill status."""
         try:
+            from analysis.utils import get_min_fvg_size
             logger.info("Detecting FVGs for timeframe={}", timeframe)
             data = _normalize_df(df)
             _required_columns(data, ["high", "low", "close", "open"])
             if len(data) < 3:
                 return []
 
+            min_size = get_min_fvg_size(instrument)
             fvgs: List[Dict[str, Any]] = []
             for i in range(1, len(data) - 1):
                 prev_row = data.iloc[i - 1]
+                middle   = data.iloc[i]
                 next_row = data.iloc[i + 1]
                 ts = _safe_timestamp(data, i)
                 future = data.iloc[i + 1 :]
 
+                # Displacement body filter — middle candle body must be >60% of range
+                body = abs(float(middle["close"]) - float(middle["open"]))
+                candle_range = float(middle["high"]) - float(middle["low"])
+                if candle_range > 0 and body / candle_range < 0.60:
+                    continue
+
                 if float(next_row["low"]) > float(prev_row["high"]):
                     top = float(next_row["low"])
                     bottom = float(prev_row["high"])
+                    if top - bottom < min_size:
+                        continue
                     midpoint = (top + bottom) / 2.0
                     filled = bool((future["close"] <= midpoint).any())
                     partial = bool((future["low"] <= top).any()) and not filled
@@ -446,6 +458,8 @@ class FVGAnalyzer:
                 if float(next_row["high"]) < float(prev_row["low"]):
                     top = float(prev_row["low"])
                     bottom = float(next_row["high"])
+                    if top - bottom < min_size:
+                        continue
                     midpoint = (top + bottom) / 2.0
                     filled = bool((future["close"] >= midpoint).any())
                     partial = bool((future["high"] >= bottom).any()) and not filled
@@ -509,6 +523,20 @@ class FVGAnalyzer:
 class OrderBlockAnalyzer:
     """Detects order blocks and breaker blocks around BOS events."""
 
+    @staticmethod
+    def find_ob_candle(data: "pd.DataFrame", bos_index: int, direction: str) -> int:
+        """Scan backwards from bos_index (max 8 bars) for the last opposite-color candle."""
+        max_lookback = min(8, bos_index)
+        for i in range(bos_index - 1, bos_index - max_lookback - 1, -1):
+            candle = data.iloc[i]
+            is_bearish = float(candle["close"]) < float(candle["open"])
+            is_bullish = float(candle["close"]) > float(candle["open"])
+            if direction == "BULL" and is_bearish:
+                return i
+            if direction == "BEAR" and is_bullish:
+                return i
+        return -1
+
     def detect_order_blocks(self, df: pd.DataFrame, bos_events: list) -> list:
         """Find last opposing candle before BOS impulse and evaluate mitigation."""
         try:
@@ -525,23 +553,16 @@ class OrderBlockAnalyzer:
                 if idx <= 0 or idx >= len(data):
                     continue
 
-                ob_idx = None
                 if et in {"BOS_BULL", "MSS_BULL", "CHOCH_BULL"}:
-                    for j in range(idx - 1, -1, -1):
-                        if float(data["close"].iloc[j]) < float(data["open"].iloc[j]):
-                            ob_idx = j
-                            break
+                    ob_idx = self.find_ob_candle(data, idx, "BULL")
                     ob_type = "BULL_OB"
                 elif et in {"BOS_BEAR", "MSS_BEAR", "CHOCH_BEAR"}:
-                    for j in range(idx - 1, -1, -1):
-                        if float(data["close"].iloc[j]) > float(data["open"].iloc[j]):
-                            ob_idx = j
-                            break
+                    ob_idx = self.find_ob_candle(data, idx, "BEAR")
                     ob_type = "BEAR_OB"
                 else:
                     continue
 
-                if ob_idx is None:
+                if ob_idx < 0:
                     continue
 
                 high = float(data["high"].iloc[ob_idx])
@@ -549,13 +570,17 @@ class OrderBlockAnalyzer:
                 midpoint = (high + low) / 2.0
                 impulse_close = float(data["close"].iloc[idx])
                 displacement = abs(impulse_close - midpoint)
+                candle_count_from_bos = idx - ob_idx
                 future = data.iloc[idx + 1 :]
                 if ob_type == "BULL_OB":
                     mitigated = bool((future["low"] < low).any()) if not future.empty else False
                 else:
                     mitigated = bool((future["high"] > high).any()) if not future.empty else False
 
-                if displacement > 2.0 * max(high - low, 1e-9):
+                # OBs more than 6 bars from BOS are inherently weak
+                if candle_count_from_bos > 6:
+                    strength = "WEAK"
+                elif displacement > 2.0 * max(high - low, 1e-9):
                     strength = "STRONG"
                 elif displacement > 1.0 * max(high - low, 1e-9):
                     strength = "MEDIUM"
@@ -572,6 +597,7 @@ class OrderBlockAnalyzer:
                         "mitigated": mitigated,
                         "strength": strength,
                         "displacement_size": displacement,
+                        "candle_count_from_bos": candle_count_from_bos,
                     }
                 )
             logger.info("Order blocks detected={}", len(obs))

@@ -59,6 +59,9 @@ class LiquiditySweepStrategy:
 
     def detect_sweep_reversal(self, df: pd.DataFrame, context: dict, timeframe: str) -> list:
         """Detect sweep confirmations and generate reversal entries."""
+        from analysis.utils import validate_dataframe
+        if not validate_dataframe(df, min_bars=30, caller="strategy_liquidity_sweep.detect_sweep_reversal"):
+            return []
         try:
             data = _to_eastern_df(df)
             for c in ("open", "high", "low", "close"):

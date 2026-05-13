@@ -86,6 +86,9 @@ class VWAPStrategy:
 
     def detect_vwap_reclaim(self, df: pd.DataFrame, context: dict) -> dict | None:
         """Detect bullish reclaim where price crosses above VWAP and holds."""
+        from analysis.utils import validate_dataframe
+        if not validate_dataframe(df, min_bars=30, caller="strategy_vwap.detect_vwap_reclaim"):
+            return None
         try:
             data = _normalize_df(df)
             if len(data) < 6 or "close" not in data.columns:
@@ -151,6 +154,9 @@ class VWAPStrategy:
 
     def detect_vwap_rejection(self, df: pd.DataFrame, context: dict) -> dict | None:
         """Detect bearish rejection where price fails to reclaim VWAP from below."""
+        from analysis.utils import validate_dataframe
+        if not validate_dataframe(df, min_bars=30, caller="strategy_vwap.detect_vwap_rejection"):
+            return None
         try:
             data = _normalize_df(df)
             if len(data) < 4 or "close" not in data.columns:

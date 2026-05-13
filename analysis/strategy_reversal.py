@@ -45,6 +45,9 @@ class ReversalDivergenceStrategy:
 
     def detect_divergence(self, df: pd.DataFrame, context: dict) -> list:
         """Detect bullish/bearish divergence at swing points with confluence metadata."""
+        from analysis.utils import validate_dataframe
+        if not validate_dataframe(df, min_bars=30, caller="strategy_reversal.detect_divergence"):
+            return []
         try:
             data = _normalize_df(df)
             if len(data) < 40 or any(c not in data.columns for c in ("high", "low", "close")):
@@ -120,6 +123,9 @@ class ReversalDivergenceStrategy:
 
     def detect_reversal_entry(self, df, divergence: dict, context: dict) -> dict | None:
         """Generate reversal entry after CHoCH/MSS confirmation following divergence."""
+        from analysis.utils import validate_dataframe
+        if not validate_dataframe(df, min_bars=30, caller="strategy_reversal.detect_reversal_entry"):
+            return None
         try:
             if not divergence:
                 return None

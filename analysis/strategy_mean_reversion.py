@@ -57,6 +57,9 @@ class MeanReversionStrategy:
 
     def detect_mean_reversion(self, df: pd.DataFrame, context: dict) -> list:
         """Detect overextension from VWAP and trigger reversal entries back to mean."""
+        from analysis.utils import validate_dataframe
+        if not validate_dataframe(df, min_bars=30, caller="strategy_mean_reversion.detect_mean_reversion"):
+            return []
         try:
             if not self.is_ranging_market(context):
                 return []

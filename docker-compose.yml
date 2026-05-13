@@ -1,13 +1,17 @@
 services:
   lucid-ai-trader:
     build: .
-    command: python dashboard/server.py
     ports:
       - "8080:8080"
     env_file:
-      - .env
+      - .env.local
     volumes:
       - ./data:/app/data
       - ./logs:/app/logs
       - ./reports:/app/reports
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/api/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3

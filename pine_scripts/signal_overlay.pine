@@ -1,0 +1,45 @@
+// Lucid AI Trader — Signal Overlay v2.0
+// Paste into Pine Editor → Add to Chart → configure webhook URL
+
+//@version=5
+indicator("Lucid AI Trader", overlay=true, max_boxes_count=500, max_lines_count=500, max_labels_count=500)
+
+// ── SETTINGS ──────────────────────────────────────────────────────────────────
+show_kz  = input.bool(true, "Show Kill Zones")
+show_fvg = input.bool(true, "Show FVG Zones")
+show_vwap = input.bool(true, "Show VWAP")
+show_orb = input.bool(true, "Show ORB Lines")
+poll_url = input.string("", "Dashboard URL (for polling)", display=display.none)
+
+// ── KILL ZONE BACKGROUNDS ─────────────────────────────────────────────────────
+nyc_hr  = hour(time, "America/New_York")
+london  = nyc_hr >= 2  and nyc_hr < 5
+ny_open = nyc_hr >= 7  and nyc_hr < 10
+ny_lunch = nyc_hr >= 12 and nyc_hr < 14
+
+if show_kz
+    bgcolor(london   ? color.new(#3b82f6, 94) : na, title="London Kill Zone")
+    bgcolor(ny_open  ? color.new(#22c55e, 94) : na, title="NY Open Kill Zone")
+    bgcolor(ny_lunch ? color.new(#f59e0b, 96) : na, title="NY Lunch — Avoid")
+
+// ── VWAP ──────────────────────────────────────────────────────────────────────
+vwap_val = ta.vwap(hlc3)
+if show_vwap
+    plot(vwap_val, "VWAP", color=color.new(#fbbf24, 0), linewidth=2)
+
+// ── ALERT HANDLER ─────────────────────────────────────────────────────────────
+// The bot sends signals to your server via the TradingView webhook.
+// Format: {"type": "SIGNAL", "dir": "UP", "price": 5481.25, "strategy": "ORB_LONG",
+//           "secret": "<TRADINGVIEW_WEBHOOK_SECRET from .env>"}
+//
+// TradingView forwards the alert message body to /api/tv/webhook.
+alertcondition(true, "Lucid AI Signal", "{{strategy.order.alert_message}}")
+
+// ── WEBHOOK ALERT SETUP ───────────────────────────────────────────────────────
+// 1. Add this indicator to your MES1! or MNQ1! chart
+// 2. Create Alert → Condition: "Lucid AI Trader" → "Lucid AI Signal"
+// 3. Alert Actions → Enable "Webhook URL"
+// 4. Webhook URL: http://YOUR_IP:8080/api/tv/webhook
+//    (If running locally: start ngrok → copy https URL → use that)
+// 5. Message: leave as default
+// 6. Save. Your chart is now connected.

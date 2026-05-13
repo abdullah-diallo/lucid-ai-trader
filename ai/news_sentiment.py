@@ -139,5 +139,5 @@ class NewsSentimentEngine:
                 "description": f"Post-news setup detected after {latest['name']}; spike settled and direction appears {direction}.",
             }
         except Exception as exc:
-            logger.exception("detect_news_spike_setup failed: {}", exc)
+            logger.exception("detect_news_spike_setup failed: %s", exc)
             return None

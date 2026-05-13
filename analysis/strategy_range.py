@@ -94,6 +94,9 @@ class RangeTradingStrategy:
 
     def detect_range_entry(self, df, range_data: dict, context: dict) -> dict | None:
         """Detect range long/short rejection entry at support or resistance."""
+        from analysis.utils import validate_dataframe
+        if not validate_dataframe(df, min_bars=30, caller="strategy_range.detect_range_entry"):
+            return None
         try:
             if not range_data or not range_data.get("is_valid"):
                 return None

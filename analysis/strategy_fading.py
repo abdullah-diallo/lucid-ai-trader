@@ -63,6 +63,9 @@ class FadingStrategy:
 
     def detect_exhaustion(self, df: pd.DataFrame, context: dict) -> dict | None:
         """Detect exhaustion setups requiring >=3 signals + POI context."""
+        from analysis.utils import validate_dataframe
+        if not validate_dataframe(df, min_bars=30, caller="strategy_fading.detect_exhaustion"):
+            return None
         try:
             data = _normalize_df(df)
             for c in ("open", "high", "low", "close"):

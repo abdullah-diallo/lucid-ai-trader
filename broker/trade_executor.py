@@ -1,89 +1,46 @@
 """
 broker/trade_executor.py
 ========================
-Subscribes to the event bus and routes TradingView signals to Tradovate orders.
+Subscribes to the event bus and routes TradingView signals to the active broker.
+The active broker is managed by broker_registry — switch it from the dashboard.
 
 Signal → Order mapping:
   BUY   → Buy  market order
   SELL  → Sell market order
   CLOSE → Liquidate all open positions for that symbol
-
-In PAPER_MODE=true, all orders are logged but never sent to Tradovate.
 """
-
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, Optional
+import os
+from typing import Any, Dict
 
-from broker.tradovate_client import TradovateClient
+from broker.broker_registry import broker_registry
 from data.tradingview_client import InMemoryEventBus
 
 logger = logging.getLogger(__name__)
 
-_TV_TO_TRADOVATE = {"BUY": "Buy", "SELL": "Sell"}
-
-
-def _normalize_symbol(tv_symbol: str) -> str:
-    """
-    Convert a TradingView continuous-contract symbol to Tradovate format.
-    MES1!  → @MES
-    NQ1!   → @NQ
-    ES1!   → @ES
-    Already-clean symbols pass through unchanged.
-    """
-    sym = tv_symbol.strip()
-    # Strip trailing "1!" or "!" (TradingView continuous contract suffix)
-    if sym.endswith("1!"):
-        sym = sym[:-2]
-    elif sym.endswith("!"):
-        sym = sym[:-1]
-    # Prepend "@" for Tradovate continuous contract notation
-    if not sym.startswith("@"):
-        sym = f"@{sym}"
-    return sym
-
 
 class TradeExecutor:
     """
-    Listens for validated trading signals and executes them via Tradovate.
-
-    Usage:
-        executor = TradeExecutor(client, paper_mode=True)
-        executor.initialize()       # fetches account details
-        executor.attach(event_bus)  # subscribes to "tradingview.signal"
+    Listens for validated trading signals and routes them to broker_registry.
+    Paper mode is now handled by PaperBroker — this class just forwards signals.
     """
 
-    def __init__(
-        self,
-        client: TradovateClient,
-        paper_mode: bool = True,
-        order_qty: int = 1,
-    ) -> None:
-        self.client = client
+    def __init__(self, paper_mode: bool = True, order_qty: int = 1, **_ignored) -> None:
         self.paper_mode = paper_mode
-        self.order_qty = order_qty
-        self._account_id: Optional[int] = None
-        self._account_spec: Optional[str] = None
+        self.order_qty  = order_qty
+
+    # kept for backward-compat: server.py passes client= keyword
+    @classmethod
+    def from_env(cls) -> "TradeExecutor":
+        paper = os.getenv("PAPER_MODE", "true").lower() == "true"
+        qty   = int(os.getenv("ORDER_QTY", "1"))
+        return cls(paper_mode=paper, order_qty=qty)
 
     def initialize(self) -> None:
-        """
-        Authenticate and cache account details.
-        Call once at startup before attaching to the event bus.
-        """
-        if self.paper_mode:
-            logger.info("TradeExecutor: PAPER MODE active — no live orders will be placed.")
-            return
-        accounts = self.client.get_accounts()
-        if not accounts:
-            raise RuntimeError("No Tradovate accounts found. Check credentials in .env.")
-        acct = accounts[0]
-        self._account_id = int(acct["id"])
-        self._account_spec = str(acct.get("name", self._account_id))
-        logger.info(
-            "TradeExecutor ready. Account: %s (id=%s).",
-            self._account_spec, self._account_id,
-        )
+        mode = "PAPER" if self.paper_mode else "LIVE"
+        logger.info("TradeExecutor: %s MODE — active broker: %s", mode, broker_registry.active_name)
 
     def attach(self, event_bus: InMemoryEventBus) -> None:
         event_bus.subscribe("tradingview.signal", self.on_signal)
@@ -92,67 +49,41 @@ class TradeExecutor:
     # ── Signal handler ────────────────────────────────────────────────────────
 
     def on_signal(self, payload: Dict[str, Any]) -> None:
-        symbol_tv = str(payload.get("symbol", "")).strip()
+        symbol    = str(payload.get("symbol", "")).strip()
         action_tv = str(payload.get("action", "")).strip().upper()
-        price = payload.get("price")
-        reason = payload.get("reason", "")
+        price     = payload.get("price")
+        reason    = payload.get("reason", "")
 
-        logger.info(
-            "Signal → action=%s symbol=%s price=%s reason=%s",
-            action_tv, symbol_tv, price, reason,
-        )
+        logger.info("Signal → action=%s symbol=%s price=%s reason=%s",
+                    action_tv, symbol, price, reason)
 
-        if action_tv == "CLOSE":
-            self._handle_close(symbol_tv)
-        elif action_tv in _TV_TO_TRADOVATE:
-            self._handle_order(symbol_tv, action_tv)
-        else:
-            logger.warning("Unrecognised action '%s' — signal ignored.", action_tv)
-
-    # ── Order execution ───────────────────────────────────────────────────────
-
-    def _handle_order(self, symbol_tv: str, action_tv: str) -> None:
-        symbol = _normalize_symbol(symbol_tv)
-        action = _TV_TO_TRADOVATE[action_tv]
-
-        if self.paper_mode:
-            logger.info("[PAPER] %s %s x%s @ market.", action, symbol, self.order_qty)
-            return
-
-        if self._account_id is None:
-            logger.error("Account not initialised — cannot place order.")
+        if self.paper_mode and broker_registry.active_name not in ("paper",):
+            logger.info("[PAPER MODE] Signal received but live trading is disabled. "
+                        "Set PAPER_MODE=false in .env to enable live orders.")
             return
 
         try:
-            result = self.client.place_order(
-                account_id=self._account_id,
-                account_spec=self._account_spec,
-                symbol=symbol,
-                action=action,
-                qty=self.order_qty,
-            )
-            logger.info("Order placed: %s", result)
+            if action_tv == "CLOSE":
+                result = broker_registry.close_position(symbol)
+                logger.info("close_position → %s", result)
+
+            elif action_tv == "BUY":
+                result = broker_registry.place_order(
+                    symbol, self.order_qty, "Buy",
+                    price=float(price) if price else None,
+                )
+                logger.info("place_order Buy → %s", result)
+
+            elif action_tv == "SELL":
+                result = broker_registry.place_order(
+                    symbol, self.order_qty, "Sell",
+                    price=float(price) if price else None,
+                )
+                logger.info("place_order Sell → %s", result)
+
+            else:
+                logger.warning("Unrecognised action '%s' — signal ignored.", action_tv)
+
         except Exception:
-            logger.exception("Failed to place %s order for %s.", action, symbol)
-
-    def _handle_close(self, symbol_tv: str) -> None:
-        if self.paper_mode:
-            logger.info("[PAPER] Would liquidate all positions for %s.", symbol_tv)
-            return
-
-        if self._account_id is None:
-            logger.error("Account not initialised — cannot liquidate.")
-            return
-
-        try:
-            positions = self.client.get_positions()
-            if not positions:
-                logger.info("No open positions to close.")
-                return
-            for pos in positions:
-                pos_id = pos.get("id")
-                if pos_id is not None:
-                    result = self.client.liquidate_position(int(pos_id))
-                    logger.info("Liquidated position id=%s: %s", pos_id, result)
-        except Exception:
-            logger.exception("Failed to liquidate positions for %s.", symbol_tv)
+            logger.exception("TradeExecutor: error handling signal action=%s symbol=%s",
+                             action_tv, symbol)

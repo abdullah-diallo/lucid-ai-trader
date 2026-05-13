@@ -39,6 +39,9 @@ class FibonacciStrategy:
 
     def detect_impulse_move(self, df: pd.DataFrame, min_size_atr_multiple: float = 2.0) -> list:
         """Detect strong impulse moves suitable for Fibonacci retracement work."""
+        from analysis.utils import validate_dataframe
+        if not validate_dataframe(df, min_bars=30, caller="strategy_fibonacci.detect_impulse_move"):
+            return []
         try:
             data = _normalize_df(df)
             for col in ("open", "high", "low", "close"):
@@ -151,6 +154,9 @@ class FibonacciStrategy:
 
     def detect_fib_entry(self, df: pd.DataFrame, impulse: dict, fib_levels: dict, context: dict) -> dict | None:
         """Detect a valid golden-pocket retracement entry with confluence."""
+        from analysis.utils import validate_dataframe
+        if not validate_dataframe(df, min_bars=30, caller="strategy_fibonacci.detect_fib_entry"):
+            return None
         try:
             if not fib_levels:
                 return None

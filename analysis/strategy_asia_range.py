@@ -91,6 +91,9 @@ class AsiaRangeStrategy:
 
     def detect_london_breakout(self, df: pd.DataFrame, asia_range: dict, context: dict) -> dict | None:
         """Detect London breakout after potential manipulation sweep of Asia range."""
+        from analysis.utils import validate_dataframe
+        if not validate_dataframe(df, min_bars=30, caller="strategy_asia_range.detect_london_breakout"):
+            return None
         try:
             if not asia_range or asia_range.get("asia_high") is None:
                 return None

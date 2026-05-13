@@ -124,6 +124,9 @@ class ICTPowerOfThreeStrategy:
 
     def detect_distribution_entry(self, df, accumulation: dict, manipulation: dict, context: dict) -> dict | None:
         """Enter on distribution confirmation after accumulation + manipulation."""
+        from analysis.utils import validate_dataframe
+        if not validate_dataframe(df, min_bars=30, caller="strategy_amd.detect_distribution_entry"):
+            return None
         try:
             if not accumulation or not manipulation:
                 return None

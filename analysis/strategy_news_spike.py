@@ -39,6 +39,9 @@ class NewsSpikeContinuationStrategy:
 
     def detect_post_news_entry(self, df: pd.DataFrame, news_spike: dict, context: dict) -> dict | None:
         """Detect post-news mini-range breakout continuation 3+ minutes after event."""
+        from analysis.utils import validate_dataframe
+        if not validate_dataframe(df, min_bars=30, caller="strategy_news_spike.detect_post_news_entry"):
+            return None
         try:
             if not news_spike or not news_spike.get("can_trade"):
                 return None

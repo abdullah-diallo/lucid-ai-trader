@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="theme-color" content="#000000" />
   <title>Lucid AI Trader</title>
-  <link rel="stylesheet" href="/static/css/design-system.css" />
+  <link rel="stylesheet" href="/static/css/design-system.css?v=2" />
 
   <style>
     .dashboard-grid {
@@ -98,7 +98,7 @@
     /* ── TradingView view ── */
     .tv-view-layout {
       display: flex; flex-direction: column; gap: var(--space-4);
-      height: calc(100vh - 100px);
+      min-height: calc(100vh - 100px);
     }
     .tv-control-bar {
       display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap;
@@ -146,6 +146,19 @@
     .tv-account-pill .dot { width:7px; height:7px; border-radius:50%; background:#34c759; }
     .tv-account-dot-off { background: rgba(255,255,255,0.3) !important; }
 
+    /* ── TV Trading Controls Bar ── */
+    .tv-trade-bar {
+      display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap;
+      background: var(--glass-2, rgba(255,255,255,0.06));
+      border: var(--border-hair, 1px solid rgba(255,255,255,0.10));
+      border-radius: var(--radius-lg, 16px);
+      padding: var(--space-3) var(--space-4);
+    }
+    .tv-trade-status-text { font-size: 13px; font-weight: 600; }
+    .tv-trade-dot { opacity: .7; }
+    .text-profit .tv-trade-dot,
+    .gate-active ~ * .tv-trade-dot { fill: #34c759; }
+
     /* ── Strategy detail modal ── */
     #strategy-detail-modal .modal-card {
       max-width: 680px; width: 92vw; max-height: 85vh; overflow-y: auto;
@@ -170,10 +183,329 @@
       border:1px solid rgba(100,210,255,.25); border-radius:4px; padding:1px 6px; margin:2px;
     }
 
+    /* ── Trading Mode Switcher ── */
+    .mode-switcher {
+      display: flex; align-items: center; gap: 4px;
+      background: var(--glass-1, rgba(255,255,255,0.03));
+      border: var(--border-hair, 1px solid rgba(255,255,255,0.10));
+      border-radius: 20px; padding: 3px;
+    }
+    .mode-btn {
+      font-size: 10px; font-weight: 600; letter-spacing: .04em;
+      padding: 4px 10px; border-radius: 16px; cursor: pointer;
+      border: none; background: transparent; color: var(--text-tertiary, rgba(255,255,255,.4));
+      transition: background .15s ease, color .15s ease;
+    }
+    .mode-btn:hover { color: var(--text-secondary, rgba(255,255,255,.7)); }
+    .mode-btn.is-active {
+      background: rgba(100,210,255,.15); color: #64d2ff;
+      border: 1px solid rgba(100,210,255,.3);
+    }
+    .mode-btn.is-active[data-mode="FULL_AUTO"]    { background:rgba(52,199,89,.15);  color:#34c759; border-color:rgba(52,199,89,.3); }
+    .mode-btn.is-active[data-mode="SIGNALS_ONLY"] { background:rgba(255,159,10,.15); color:#ff9f0a; border-color:rgba(255,159,10,.3); }
+
+    /* ── Risk Panel ── */
+    .dll-bar-track { background: rgba(255,255,255,.08); border-radius:20px; height:6px; overflow:hidden; margin:4px 0; }
+    .dll-bar-fill  { height:100%; border-radius:20px; transition:width .4s ease, background .4s ease; }
+    .dll-bar-fill.level-0 { background:#34c759; }
+    .dll-bar-fill.level-1 { background:#34c759; }
+    .dll-bar-fill.level-2 { background:#ff9f0a; }
+    .dll-bar-fill.level-3 { background:#ff6b35; }
+    .dll-bar-fill.level-4, .dll-bar-fill.level-5 { background:#ff3b30; }
+
+    /* ── Performance Table ── */
+    .perf-table { width:100%; border-collapse:collapse; font-size:12px; }
+    .perf-table th { text-align:left; font-size:10px; text-transform:uppercase; letter-spacing:.07em; color:var(--text-tertiary,rgba(255,255,255,.4)); padding:6px 8px; border-bottom:1px solid rgba(255,255,255,.08); }
+    .perf-table td { padding:8px 8px; border-bottom:1px solid rgba(255,255,255,.05); vertical-align:middle; }
+    .perf-table tr:last-child td { border-bottom:none; }
+    .perf-table tr:hover td { background:rgba(255,255,255,.03); }
+    .perf-badge { font-size:9px; font-weight:700; letter-spacing:.05em; padding:2px 6px; border-radius:10px; }
+    .perf-badge-under  { background:rgba(255,159,10,.15); color:#ff9f0a; border:1px solid rgba(255,159,10,.3); }
+    .perf-badge-paused { background:rgba(255,255,255,.08); color:rgba(255,255,255,.4); border:1px solid rgba(255,255,255,.15); }
+    .perf-badge-good   { background:rgba(52,199,89,.12); color:#34c759; border:1px solid rgba(52,199,89,.25); }
+    .range-tabs { display:flex; gap:4px; margin-bottom:var(--space-4); }
+    .range-tab { font-size:11px; padding:4px 12px; border-radius:12px; cursor:pointer; border:1px solid rgba(255,255,255,.12); background:transparent; color:var(--text-secondary,rgba(255,255,255,.6)); transition:all .15s ease; }
+    .range-tab.active { background:rgba(100,210,255,.12); color:#64d2ff; border-color:rgba(100,210,255,.3); }
+
+    /* ── Trading Account Modal ── */
+    #trading-account-modal .modal-card { max-width:480px; width:92vw; }
+
+    /* ── Pending Signal Approval ── */
+    .pending-signal-card {
+      background: rgba(255,159,10,.08); border:1px solid rgba(255,159,10,.25);
+      border-radius: var(--radius-md,12px); padding: var(--space-4);
+      margin-bottom: var(--space-4);
+    }
+    .pending-signal-card .signal-timer { font-size:11px; color:#ff9f0a; font-variant-numeric:tabular-nums; }
+    .pending-actions { display:flex; gap:var(--space-3); margin-top:var(--space-3); }
+
     /* ── Add account modal ── */
     #add-account-modal .modal-card { max-width:420px; width:92vw; }
     .form-field { display:flex; flex-direction:column; gap:var(--space-2); margin-bottom:var(--space-4); }
     .form-label { font-size:12px; color:var(--text-secondary,rgba(255,255,255,.6)); }
+
+    /* ── AI Chat view ── */
+    .chat-layout {
+      display: grid;
+      grid-template-columns: 240px 1fr;
+      gap: var(--space-4);
+      height: calc(100vh - 100px);
+    }
+    @media (max-width: 700px) {
+      .chat-layout { grid-template-columns: 1fr; height: auto; }
+      .chat-sessions-pane { display: none; }
+    }
+
+    .chat-sessions-pane {
+      display: flex; flex-direction: column; gap: var(--space-3);
+      background: var(--glass-1, rgba(255,255,255,0.03));
+      border: var(--border-hair, 1px solid rgba(255,255,255,0.08));
+      border-radius: var(--radius-lg, 16px);
+      padding: var(--space-4);
+      overflow-y: auto;
+    }
+    .chat-sessions-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: var(--space-2);
+    }
+    .chat-sessions-label { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--text-tertiary, rgba(255,255,255,.4)); }
+    .chat-session-item {
+      padding: var(--space-3) var(--space-3);
+      border-radius: var(--radius-md, 12px);
+      cursor: pointer; font-size: 13px;
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--text-secondary, rgba(255,255,255,.6));
+      transition: background .15s ease, border-color .15s ease, color .15s ease;
+      display: flex; align-items: center; justify-content: space-between; gap: 6px;
+      word-break: break-word;
+    }
+    .chat-session-item:hover { background: var(--glass-2,rgba(255,255,255,.06)); color: var(--text-primary,#fff); }
+    .chat-session-item.is-active { background: var(--glass-3,rgba(255,255,255,.10)); border-color: rgba(255,255,255,.18); color: #fff; }
+    .chat-session-del {
+      flex-shrink: 0; background: none; border: none; cursor: pointer;
+      color: rgba(255,255,255,.3); font-size: 14px; line-height: 1; padding: 0 2px;
+      transition: color .15s ease;
+    }
+    .chat-session-del:hover { color: #ff453a; }
+
+    .chat-main {
+      display: flex; flex-direction: column;
+      background: var(--glass-1, rgba(255,255,255,0.03));
+      border: var(--border-hair, 1px solid rgba(255,255,255,0.08));
+      border-radius: var(--radius-lg, 16px);
+      overflow: hidden;
+    }
+    .chat-header {
+      display: flex; align-items: center; gap: var(--space-3);
+      padding: var(--space-4) var(--space-5);
+      border-bottom: var(--border-hair, 1px solid rgba(255,255,255,0.08));
+      flex-shrink: 0;
+    }
+    .chat-title { font-size: 14px; font-weight: 600; flex: 1; }
+    .chat-model-badge {
+      font-size: 10px; font-family: var(--font-mono, monospace);
+      background: rgba(10,132,255,.15); color: #0a84ff;
+      border: 1px solid rgba(10,132,255,.3); border-radius: 20px;
+      padding: 2px 8px;
+    }
+
+    .chat-messages {
+      flex: 1; overflow-y: auto; padding: var(--space-5);
+      display: flex; flex-direction: column; gap: var(--space-4);
+      scroll-behavior: smooth;
+    }
+    .chat-empty {
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: var(--space-4);
+      opacity: .5;
+    }
+    .chat-empty-icon { font-size: 40px; }
+    .chat-empty-text { font-size: 14px; color: var(--text-secondary, rgba(255,255,255,.6)); text-align: center; max-width: 260px; line-height: 1.5; }
+
+    .chat-bubble {
+      display: flex; flex-direction: column; gap: 4px;
+      max-width: 80%;
+    }
+    .chat-bubble.user { align-self: flex-end; align-items: flex-end; }
+    .chat-bubble.assistant { align-self: flex-start; align-items: flex-start; }
+
+    .chat-bubble-role {
+      font-size: 10px; text-transform: uppercase; letter-spacing: .07em;
+      color: var(--text-tertiary, rgba(255,255,255,.4));
+      padding: 0 4px;
+    }
+    .chat-bubble-content {
+      padding: var(--space-3) var(--space-4);
+      border-radius: 14px; font-size: 14px; line-height: 1.6;
+      white-space: pre-wrap; word-break: break-word;
+    }
+    .chat-bubble.user .chat-bubble-content {
+      background: rgba(10,132,255,.20);
+      border: 1px solid rgba(10,132,255,.35);
+      border-bottom-right-radius: 4px;
+      color: #fff;
+    }
+    .chat-bubble.assistant .chat-bubble-content {
+      background: var(--glass-2, rgba(255,255,255,.06));
+      border: var(--border-hair, 1px solid rgba(255,255,255,.10));
+      border-bottom-left-radius: 4px;
+      color: var(--text-primary, #fff);
+    }
+    .chat-bubble-time {
+      font-size: 10px; color: var(--text-tertiary, rgba(255,255,255,.3));
+      padding: 0 4px;
+    }
+
+    .chat-thinking {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 13px; color: var(--text-tertiary, rgba(255,255,255,.4));
+      padding: var(--space-3) var(--space-4);
+      background: var(--glass-2, rgba(255,255,255,.06));
+      border: var(--border-hair); border-radius: 14px;
+      border-bottom-left-radius: 4px;
+      align-self: flex-start; max-width: 160px;
+    }
+    .chat-thinking-dots span {
+      display: inline-block; width: 6px; height: 6px; border-radius: 50%;
+      background: currentColor; margin: 0 2px;
+      animation: chatDot 1.2s infinite;
+    }
+    .chat-thinking-dots span:nth-child(2) { animation-delay: .2s; }
+    .chat-thinking-dots span:nth-child(3) { animation-delay: .4s; }
+    @keyframes chatDot { 0%,80%,100%{opacity:.2} 40%{opacity:1} }
+
+    .chat-input-bar {
+      display: flex; align-items: flex-end; gap: var(--space-3);
+      padding: var(--space-4) var(--space-5);
+      border-top: var(--border-hair, 1px solid rgba(255,255,255,0.08));
+      flex-shrink: 0;
+    }
+    #chat-input {
+      flex: 1; background: var(--glass-2, rgba(255,255,255,.06));
+      border: var(--border-hair, 1px solid rgba(255,255,255,.12));
+      border-radius: 12px; color: inherit; font-size: 14px;
+      padding: 10px 14px; outline: none; resize: none;
+      font-family: inherit; line-height: 1.5; max-height: 120px; overflow-y: auto;
+      transition: border-color .15s ease;
+    }
+    #chat-input:focus { border-color: rgba(10,132,255,.5); }
+    #chat-input::placeholder { color: rgba(255,255,255,.3); }
+    #chat-send-btn {
+      flex-shrink: 0; width: 40px; height: 40px;
+      border-radius: 10px; border: none; cursor: pointer;
+      background: rgba(10,132,255,.9); color: #fff;
+      display: flex; align-items: center; justify-content: center;
+      transition: background .15s ease, transform .1s ease;
+    }
+    #chat-send-btn:hover { background: #0a84ff; }
+    #chat-send-btn:active { transform: scale(.95); }
+    #chat-send-btn:disabled { background: rgba(255,255,255,.1); cursor: not-allowed; }
+
+    .chat-starter-grid {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: var(--space-3); width: 100%; max-width: 480px;
+    }
+    .chat-starter-chip {
+      background: var(--glass-2, rgba(255,255,255,.06));
+      border: var(--border-hair, 1px solid rgba(255,255,255,.10));
+      border-radius: var(--radius-md, 12px);
+      padding: var(--space-3) var(--space-4);
+      font-size: 12px; color: var(--text-secondary, rgba(255,255,255,.6));
+      cursor: pointer; text-align: left; line-height: 1.4;
+      transition: background .15s ease, border-color .15s ease, color .15s ease;
+    }
+    .chat-starter-chip:hover { background: var(--glass-3,rgba(255,255,255,.10)); border-color: rgba(255,255,255,.22); color: #fff; }
+    .chat-starter-chip strong { display: block; color: var(--text-primary,#fff); margin-bottom: 2px; font-size: 13px; }
+
+    /* ── Backtest view ── */
+    .bt-layout {
+      display: grid;
+      grid-template-columns: 272px 1fr;
+      gap: var(--space-5);
+      align-items: start;
+    }
+    @media (max-width: 900px) { .bt-layout { grid-template-columns: 1fr; } }
+
+    .bt-form-panel {
+      background: var(--glass-1, rgba(255,255,255,0.03));
+      border: var(--border-hair, 1px solid rgba(255,255,255,0.08));
+      border-radius: var(--radius-lg, 16px);
+      padding: var(--space-5);
+      display: flex; flex-direction: column; gap: var(--space-4);
+      position: sticky; top: 80px;
+    }
+    .bt-field { display: flex; flex-direction: column; gap: var(--space-2); }
+    .bt-label { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-tertiary, rgba(255,255,255,.4)); }
+    .bt-input {
+      background: var(--glass-2, rgba(255,255,255,0.06));
+      border: var(--border-hair, 1px solid rgba(255,255,255,0.12));
+      border-radius: var(--radius-sm, 8px);
+      color: inherit; font-size: 13px; padding: 8px 10px;
+      outline: none; width: 100%; box-sizing: border-box; font-family: inherit;
+    }
+    .bt-input:focus { border-color: rgba(255,255,255,0.3); }
+    .bt-input option { background: #1c1c1e; }
+
+    .bt-metrics-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      gap: var(--space-4); margin-bottom: var(--space-5);
+    }
+    @media (max-width: 700px) { .bt-metrics-grid { grid-template-columns: repeat(2, 1fr); } }
+
+    .bt-metric-card {
+      background: var(--glass-2, rgba(255,255,255,0.06));
+      border: var(--border-hair, 1px solid rgba(255,255,255,0.10));
+      border-radius: var(--radius-md, 12px); padding: var(--space-4);
+    }
+    .bt-metric-label { font-size: 10px; text-transform: uppercase; letter-spacing: .07em; color: var(--text-tertiary, rgba(255,255,255,.4)); margin-bottom: 4px; }
+    .bt-metric-value { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+    .bt-canvas-wrap {
+      background: var(--glass-1, rgba(255,255,255,0.03));
+      border: var(--border-hair, 1px solid rgba(255,255,255,0.08));
+      border-radius: var(--radius-lg, 16px);
+      padding: var(--space-5); margin-bottom: var(--space-5);
+    }
+    #bt-equity-canvas { width: 100%; display: block; }
+
+    .bt-trades-wrap {
+      background: var(--glass-1, rgba(255,255,255,0.03));
+      border: var(--border-hair, 1px solid rgba(255,255,255,0.08));
+      border-radius: var(--radius-lg, 16px); padding: var(--space-5);
+    }
+    .bt-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .bt-table th { text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: .07em; color: var(--text-tertiary,rgba(255,255,255,.4)); padding: 6px 8px; border-bottom: 1px solid rgba(255,255,255,.08); white-space: nowrap; }
+    .bt-table td { padding: 8px 8px; border-bottom: 1px solid rgba(255,255,255,.05); vertical-align: middle; white-space: nowrap; }
+    .bt-table tr:last-child td { border-bottom: none; }
+    .bt-table tr:hover td { background: rgba(255,255,255,.02); }
+
+    .bt-placeholder {
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; gap: var(--space-3);
+      padding: 64px var(--space-5); text-align: center;
+      color: var(--text-tertiary, rgba(255,255,255,.35)); font-size: 13px;
+    }
+    .bt-running {
+      display: flex; align-items: center; justify-content: center;
+      gap: var(--space-3); padding: 64px; font-size: 13px;
+      color: var(--text-secondary, rgba(255,255,255,.6));
+    }
+    .bt-error-box {
+      background: rgba(255,59,48,.08); border: 1px solid rgba(255,59,48,.22);
+      border-radius: var(--radius-md, 12px); padding: var(--space-4);
+      color: #ff6b6b; font-size: 13px; line-height: 1.5;
+    }
+    .bt-summary-bar {
+      display: flex; align-items: center; gap: var(--space-4);
+      flex-wrap: wrap; margin-bottom: var(--space-5);
+      background: var(--glass-1, rgba(255,255,255,0.03));
+      border: var(--border-hair, 1px solid rgba(255,255,255,0.08));
+      border-radius: var(--radius-lg, 16px);
+      padding: var(--space-4) var(--space-5);
+      font-size: 12px; color: var(--text-secondary, rgba(255,255,255,.6));
+    }
+    .bt-summary-bar strong { color: var(--text-primary, #fff); font-weight: 600; }
   </style>
 </head>
 
@@ -207,6 +539,11 @@
         <span class="session-name">—</span>
       </div>
       <span id="paper-pill" class="action-badge close" style="display:none">PAPER</span>
+      <div id="mode-switcher" class="mode-switcher" title="Trading mode" aria-label="Trading mode selector">
+        <button class="mode-btn" data-mode="FULL_AUTO" onclick="setMode('FULL_AUTO')">AUTO</button>
+        <button class="mode-btn is-active" data-mode="SEMI_AUTO" onclick="setMode('SEMI_AUTO')">SEMI</button>
+        <button class="mode-btn" data-mode="SIGNALS_ONLY" onclick="setMode('SIGNALS_ONLY')">SIGNALS</button>
+      </div>
     </div>
 
     <div class="nav-right">
@@ -224,6 +561,11 @@
           <path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.41 1.41M11.54 11.54l1.41 1.41M3.05 12.95l1.41-1.41M11.54 4.46l1.41-1.41"/>
         </svg>
       </button>
+      <form method="POST" action="/logout" style="display:inline">
+        <button type="submit" class="btn btn-secondary btn-sm" title="Sign out" aria-label="Sign out" style="font-size:11px;padding:4px 10px">
+          Sign out
+        </button>
+      </form>
     </div>
   </nav>
 
@@ -267,12 +609,6 @@
           </svg>
           Dashboard
         </a>
-        <a href="#" class="sidebar-item" data-view-link="signals">
-          <svg width="16" height="16" viewBox="0 0 16 16" class="icon-glass-stroke" aria-hidden="true">
-            <path d="M1 8h14M1 4h14M1 12h8"/>
-          </svg>
-          Signal Feed
-        </a>
         <a href="#" class="sidebar-item" data-view-link="strategies">
           <svg width="16" height="16" viewBox="0 0 16 16" class="icon-glass-stroke" aria-hidden="true">
             <path d="M2 3h12M2 8h8M2 13h5"/>
@@ -281,6 +617,13 @@
           </svg>
           Strategies
         </a>
+        <a href="#" class="sidebar-item" data-view-link="brokers">
+          <svg width="16" height="16" viewBox="0 0 16 16" class="icon-glass-stroke" aria-hidden="true">
+            <circle cx="8" cy="8" r="6.5"/>
+            <path d="M8 4v1.5M8 10.5V12M5.5 6.5a2.5 1.5 0 015 0c0 1-1.2 1.5-2.5 1.5S5.5 8.5 5.5 9.5a2.5 1.5 0 005 0"/>
+          </svg>
+          Brokers
+        </a>
         <a href="#" class="sidebar-item" data-view-link="tradingview">
           <svg width="16" height="16" viewBox="0 0 16 16" class="icon-glass-stroke" aria-hidden="true">
             <rect x="1" y="2" width="14" height="10" rx="1.5"/>
@@ -288,6 +631,27 @@
             <path d="M5 14h6"/>
           </svg>
           TradingView
+        </a>
+        <a href="#" class="sidebar-item" data-view-link="performance">
+          <svg width="16" height="16" viewBox="0 0 16 16" class="icon-glass-stroke" aria-hidden="true">
+            <path d="M1 12l4-4 3 3 4-5 3 2"/><rect x="1" y="1" width="14" height="14" rx="2"/>
+          </svg>
+          Performance
+        </a>
+        <a href="#" class="sidebar-item" data-view-link="backtest">
+          <svg width="16" height="16" viewBox="0 0 16 16" class="icon-glass-stroke" aria-hidden="true">
+            <path d="M14 8A6 6 0 112 8"/>
+            <path d="M2 8V4M2 4h4"/>
+            <path d="M7 8l3-3 2 2 2-4"/>
+          </svg>
+          Backtest
+        </a>
+        <a href="#" class="sidebar-item" data-view-link="ai-chat">
+          <svg width="16" height="16" viewBox="0 0 16 16" class="icon-glass-stroke" aria-hidden="true">
+            <path d="M13 2H3a1 1 0 00-1 1v7a1 1 0 001 1h2l2 2.5L9 11h4a1 1 0 001-1V3a1 1 0 00-1-1z"/>
+            <path d="M5 6h6M5 8.5h4"/>
+          </svg>
+          AI Chat
         </a>
       </nav>
     </div>
@@ -452,6 +816,45 @@
             </div>
           </article>
 
+          <!-- RISK PANEL CARD -->
+          <article class="card card-1" data-stagger aria-label="Risk status">
+            <div class="card-header">
+              <div class="flex items-center gap-3">
+                <div class="jewel jewel-sm jewel-glass" aria-hidden="true">
+                  <svg width="16" height="16" viewBox="0 0 16 16" class="icon-glass-stroke">
+                    <path d="M8 1L2 4v5c0 3 3 5.5 6 6 3-.5 6-3 6-6V4L8 1z"/>
+                  </svg>
+                </div>
+                <span class="text-headline">Risk Status</span>
+              </div>
+              <span id="risk-mode-badge" class="action-badge" style="font-size:10px">—</span>
+            </div>
+            <div class="card-body flex-col gap-4">
+              <div id="pending-signal-container"></div>
+              <div>
+                <div class="flex items-center justify-between" style="margin-bottom:4px">
+                  <span style="font-size:11px;color:var(--text-tertiary,rgba(255,255,255,.4))">Daily Loss Limit</span>
+                  <span id="dll-pct-text" class="text-mono" style="font-size:11px">—</span>
+                </div>
+                <div class="dll-bar-track"><div id="dll-bar" class="dll-bar-fill level-0" style="width:0%"></div></div>
+              </div>
+              <div class="orb-level-row">
+                <span class="orb-level-label">Today's P&amp;L</span>
+                <span id="risk-daily-pnl" class="text-subheadline text-secondary">—</span>
+              </div>
+              <div class="orb-level-row">
+                <span class="orb-level-label">Drawdown</span>
+                <span id="risk-drawdown" class="text-subheadline text-secondary">—</span>
+              </div>
+              <div class="orb-level-row">
+                <span class="orb-level-label">Account</span>
+                <button class="btn btn-secondary btn-sm" onclick="document.getElementById('trading-account-modal').classList.add('open')" style="font-size:10px;padding:3px 8px">
+                  <span id="risk-account-name">Manage</span>
+                </button>
+              </div>
+            </div>
+          </article>
+
           <!-- QUICK CONTROLS CARD -->
           <article class="card card-1" data-stagger aria-label="Quick controls">
             <div class="card-header">
@@ -512,6 +915,41 @@
         </div>
       </div><!-- /#view-strategies -->
 
+      <!-- ══════════════════════ VIEW: BROKERS ══════════════════════ -->
+      <div id="view-brokers" class="view-panel">
+        <section class="hero-section" aria-label="Brokers">
+          <div class="flex items-center justify-between" style="margin-bottom:var(--space-5)">
+            <div>
+              <h2 class="text-title-2">Broker Connections</h2>
+              <p class="text-body text-secondary" style="margin-top:4px">Connect any broker — switch instantly without restarting.</p>
+            </div>
+            <div id="broker-active-badge" class="pill pill-success" style="font-size:12px;padding:6px 14px"></div>
+          </div>
+
+          <div id="broker-cards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:var(--space-4)">
+            <!-- injected by JS -->
+          </div>
+
+          <!-- Connect form modal -->
+          <div id="broker-connect-modal" class="modal-backdrop" style="display:none" role="dialog" aria-modal="true">
+            <div class="modal-sheet" style="max-width:420px">
+              <div class="flex items-center justify-between" style="margin-bottom:var(--space-5)">
+                <h2 class="text-title-2" id="broker-modal-title">Connect Broker</h2>
+                <button class="btn btn-icon btn-sm" id="broker-modal-close" aria-label="Close">
+                  <svg width="12" height="12" viewBox="0 0 12 12" class="icon-glass-stroke"><path d="M1 1l10 10M11 1L1 11"/></svg>
+                </button>
+              </div>
+              <div id="broker-modal-fields" style="display:flex;flex-direction:column;gap:var(--space-3)"></div>
+              <div style="margin-top:var(--space-5);display:flex;gap:var(--space-3)">
+                <button class="btn btn-primary" id="broker-modal-submit" style="flex:1">Connect</button>
+                <button class="btn btn-secondary" id="broker-modal-cancel">Cancel</button>
+              </div>
+              <p id="broker-modal-msg" style="margin-top:var(--space-3);font-size:13px;color:var(--text-secondary)"></p>
+            </div>
+          </div>
+        </section>
+      </div><!-- /#view-brokers -->
+
       <!-- ══════════════════════ VIEW: TRADINGVIEW ══════════════════════ -->
       <div id="view-tradingview" class="view-panel">
         <div class="tv-view-layout">
@@ -536,7 +974,7 @@
           <!-- Chart control bar -->
           <div class="tv-control-bar">
             <span class="tv-control-label">Symbol</span>
-            <input id="tv-symbol-input" class="input-glass" type="text" value="CME_MINI:MES1!" placeholder="e.g. CME_MINI:MNQ1!" style="width:160px"/>
+            <input id="tv-symbol-input" class="input-glass" type="text" value="AMEX:SPY" placeholder="e.g. AMEX:SPY or CME_MINI:MES1!" style="width:190px"/>
             <span class="tv-control-label" style="margin-left:var(--space-3)">Interval</span>
             <select id="tv-interval-select" class="input-glass">
               <option value="1">1m</option>
@@ -569,14 +1007,117 @@
           <div class="tv-chart-wrap" id="tv-chart-wrap">
             <div id="tv-chart"></div>
           </div>
+
+          <!-- CME futures notice -->
+          <div style="background:rgba(255,159,10,.08);border:1px solid rgba(255,159,10,.22);border-radius:var(--radius-md);padding:10px 16px;font-size:12px;color:rgba(255,159,10,.9);display:flex;align-items:center;gap:8px">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="flex-shrink:0"><path d="M7 1L13 12H1L7 1Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M7 5v3M7 9.5v.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+            <span>CME futures (MES1!, NQ1!, ES1!) require a <strong>TradingView account with CME data</strong>. Click <strong>Sign In to TV</strong> above, log in, then switch the symbol. Free symbols like <code>AMEX:SPY</code> work without login.</span>
+          </div>
+
+          <!-- Bot trading controls bar -->
+          <div id="tv-trade-bar" class="tv-trade-bar">
+            <div class="flex items-center gap-3">
+              <svg width="10" height="10" viewBox="0 0 10 10" style="flex-shrink:0"><circle cx="5" cy="5" r="5" fill="currentColor" class="tv-trade-dot"/></svg>
+              <span style="font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:rgba(255,255,255,.4)">Bot Status</span>
+              <span id="tv-trade-status" class="tv-trade-status-text text-neutral">—</span>
+            </div>
+            <div class="flex items-center gap-2" style="flex:1;justify-content:center">
+              <button id="tv-trade-buy"   class="btn btn-success btn-sm"     onclick="manualTrade('BUY')"   aria-label="Manual BUY">
+                <svg width="12" height="12" viewBox="0 0 12 12" class="icon-glass-stroke" aria-hidden="true"><path d="M6 10V2M2 6l4-4 4 4"/></svg>
+                BUY
+              </button>
+              <button id="tv-trade-sell"  class="btn btn-destructive btn-sm" onclick="manualTrade('SELL')"  aria-label="Manual SELL">
+                <svg width="12" height="12" viewBox="0 0 12 12" class="icon-glass-stroke" aria-hidden="true"><path d="M6 2v8M2 6l4 4 4-4"/></svg>
+                SELL
+              </button>
+              <button id="tv-trade-close" class="btn btn-secondary btn-sm"   onclick="manualTrade('CLOSE')" aria-label="Close all positions">
+                <svg width="12" height="12" viewBox="0 0 12 12" class="icon-glass-stroke" aria-hidden="true"><path d="M1 1l10 10M11 1L1 11"/></svg>
+                Close All
+              </button>
+            </div>
+            <div class="flex items-center gap-2">
+              <button id="tv-btn-pause"  class="btn btn-destructive btn-sm" onclick="tvPauseResume(true)"  style="display:inline-flex">
+                <svg width="12" height="12" viewBox="0 0 12 12" class="icon-glass-stroke" aria-hidden="true"><rect x="2" y="1" width="3" height="10" rx="1"/><rect x="7" y="1" width="3" height="10" rx="1"/></svg>
+                Pause Bot
+              </button>
+              <button id="tv-btn-resume" class="btn btn-success btn-sm"     onclick="tvPauseResume(false)" style="display:none">
+                <svg width="12" height="12" viewBox="0 0 12 12" class="icon-glass-stroke" aria-hidden="true"><path d="M2 1l9 5-9 5V1Z"/></svg>
+                Resume Bot
+              </button>
+            </div>
+          </div>
+
         </div>
       </div><!-- /#view-tradingview -->
 
-    </div><!-- /.page-inner -->
-  </main>
+      <!-- ══════════════════════ VIEW: AI CHAT ══════════════════════ -->
+      <div id="view-ai-chat" class="view-panel">
+        <div class="chat-layout">
+
+          <!-- Sessions sidebar -->
+          <div class="chat-sessions-pane">
+            <div class="chat-sessions-header">
+              <span class="chat-sessions-label">Conversations</span>
+              <button class="btn btn-primary btn-sm" id="btn-new-chat" style="font-size:11px;padding:4px 10px" aria-label="New chat">
+                + New
+              </button>
+            </div>
+            <div id="chat-session-list" style="display:flex;flex-direction:column;gap:4px">
+              <div class="skeleton" style="height:36px;border-radius:10px"></div>
+              <div class="skeleton" style="height:36px;border-radius:10px"></div>
+              <div class="skeleton" style="height:36px;border-radius:10px"></div>
+            </div>
+          </div>
+
+          <!-- Chat main panel -->
+          <div class="chat-main">
+            <div class="chat-header">
+              <div class="jewel jewel-sm jewel-blue" aria-hidden="true">
+                <svg width="14" height="14" viewBox="0 0 14 14" class="icon-glass-stroke">
+                  <path d="M11 1H3a1 1 0 00-1 1v6a1 1 0 001 1h2l2 2.5L9 9h2a1 1 0 001-1V2a1 1 0 00-1-1z"/>
+                </svg>
+              </div>
+              <span class="chat-title" id="chat-current-title">Select or start a chat</span>
+              <span class="chat-model-badge">Groq · LLaMA 3 70B</span>
+            </div>
+
+            <div class="chat-messages" id="chat-messages">
+              <!-- Empty state -->
+              <div class="chat-empty" id="chat-empty-state">
+                <div class="chat-empty-icon">💬</div>
+                <p class="chat-empty-text">Start a new conversation to plan trades, analyze markets, or discuss strategy with Lucid AI.</p>
+                <div class="chat-starter-grid">
+                  <button class="chat-starter-chip" data-starter="What are the key ICT concepts I should know for trading MES futures?">
+                    <strong>ICT Concepts</strong>What should I know for MES futures?
+                  </button>
+                  <button class="chat-starter-chip" data-starter="Explain SMC order blocks and how to identify them on a 5-minute chart.">
+                    <strong>Order Blocks</strong>How do I identify them on 5m?
+                  </button>
+                  <button class="chat-starter-chip" data-starter="What is the ideal risk-reward ratio for day trading futures and why?">
+                    <strong>Risk Management</strong>Best R:R for day trading?
+                  </button>
+                  <button class="chat-starter-chip" data-starter="Walk me through a complete ORB (Opening Range Breakout) strategy setup for RTH.">
+                    <strong>ORB Strategy</strong>Setup for RTH open
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div class="chat-input-bar">
+              <textarea id="chat-input" rows="1" placeholder="Ask about markets, strategies, setups…" aria-label="Chat message" disabled></textarea>
+              <button id="chat-send-btn" aria-label="Send message" disabled>
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                  <path d="M13.5 2.5l-11 4.5 4.5 1.5 1.5 4.5 5-10.5z" stroke="white" stroke-width="1.4" stroke-linejoin="round" fill="none"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+
+        </div>
+      </div><!-- /#view-ai-chat -->
 
   <!-- ======================================================
-       MODAL OVERLAY
+       MODAL OVERLAY (kept outside page-inner, inside main)
        ====================================================== -->
   <div id="modal-overlay" class="modal-overlay" aria-hidden="true"></div>
 
@@ -592,6 +1133,203 @@
       <div id="signal-detail-content"></div>
     </div>
   </div>
+
+      <!-- ══════════════════════ VIEW: PERFORMANCE ══════════════════════ -->
+      <div id="view-performance" class="view-panel">
+        <section class="hero-section" aria-label="Performance">
+          <div class="session-status-card card-3">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-caption-1 text-tertiary" style="letter-spacing:.08em;text-transform:uppercase;margin-bottom:var(--space-2)">Analytics</p>
+                <h1 class="text-title-1">Strategy Performance</h1>
+              </div>
+            </div>
+          </div>
+        </section>
+        <div style="margin-top:var(--space-5)">
+          <div class="range-tabs" role="tablist" aria-label="Date range">
+            <button class="range-tab active" data-range="all"   onclick="loadPerformance('all')">All Time</button>
+            <button class="range-tab"        data-range="month" onclick="loadPerformance('month')">This Month</button>
+            <button class="range-tab"        data-range="week"  onclick="loadPerformance('week')">This Week</button>
+            <button class="range-tab"        data-range="today" onclick="loadPerformance('today')">Today</button>
+          </div>
+          <div id="perf-summary" class="flex gap-5" style="margin-bottom:var(--space-5);flex-wrap:wrap">
+            <div class="pnl-card" style="flex:1;min-width:120px">
+              <div class="pnl-card-label">Total P&amp;L</div>
+              <div class="pnl-card-value" id="perf-total-pnl">—</div>
+            </div>
+            <div class="pnl-card" style="flex:1;min-width:120px">
+              <div class="pnl-card-label">System Win Rate</div>
+              <div class="pnl-card-value" id="perf-sys-wr">—</div>
+            </div>
+            <div class="pnl-card" style="flex:1;min-width:120px">
+              <div class="pnl-card-label">Best Strategy</div>
+              <div class="pnl-card-value text-footnote" id="perf-best-name" style="font-size:14px">—</div>
+            </div>
+          </div>
+          <div class="card card-1">
+            <div class="card-body" style="overflow-x:auto">
+              <table class="perf-table" id="perf-table">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Strategy</th>
+                    <th>Win Rate</th>
+                    <th>Total P&amp;L</th>
+                    <th>Trades</th>
+                    <th>Streak</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody id="perf-tbody">
+                  <tr><td colspan="7" style="text-align:center;color:var(--text-tertiary,rgba(255,255,255,.4));padding:32px">Loading…</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div><!-- /#view-performance -->
+
+      <!-- ══════════════════════ VIEW: BACKTEST ══════════════════════ -->
+      <div id="view-backtest" class="view-panel">
+        <section class="hero-section" aria-label="Backtesting">
+          <div class="session-status-card card-3">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-caption-1 text-tertiary" style="letter-spacing:.08em;text-transform:uppercase;margin-bottom:var(--space-2)">Historical Simulation</p>
+                <h1 class="text-title-1">Backtest</h1>
+              </div>
+              <div id="bt-run-badge" style="display:none;font-size:11px" class="action-badge buy"></div>
+            </div>
+          </div>
+        </section>
+
+        <div class="bt-layout" style="margin-top:var(--space-5)">
+
+          <!-- ── Form panel ── -->
+          <div class="bt-form-panel">
+            <div class="bt-field">
+              <label class="bt-label" for="bt-strategy">Strategy</label>
+              <select class="bt-input" id="bt-strategy">
+                <option value="">Loading…</option>
+              </select>
+            </div>
+            <div class="bt-field">
+              <label class="bt-label" for="bt-symbol">Symbol</label>
+              <input class="bt-input" type="text" id="bt-symbol" value="MES1!" placeholder="MES1! · ES1! · SPY · EURUSD"/>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-3)">
+              <div class="bt-field">
+                <label class="bt-label" for="bt-start">Start</label>
+                <input class="bt-input" type="date" id="bt-start"/>
+              </div>
+              <div class="bt-field">
+                <label class="bt-label" for="bt-end">End</label>
+                <input class="bt-input" type="date" id="bt-end"/>
+              </div>
+            </div>
+            <div class="bt-field">
+              <label class="bt-label" for="bt-interval">Interval</label>
+              <select class="bt-input" id="bt-interval">
+                <option value="5m" selected>5m (last 60 days)</option>
+                <option value="15m">15m (last 60 days)</option>
+                <option value="30m">30m (last 60 days)</option>
+                <option value="1h">1h (last 2 years)</option>
+                <option value="1d">1d (any date range)</option>
+              </select>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-3)">
+              <div class="bt-field">
+                <label class="bt-label" for="bt-balance">Balance ($)</label>
+                <input class="bt-input" type="number" id="bt-balance" value="100000" min="1000" step="1000"/>
+              </div>
+              <div class="bt-field">
+                <label class="bt-label" for="bt-qty">Contracts</label>
+                <input class="bt-input" type="number" id="bt-qty" value="1" min="1" max="100"/>
+              </div>
+            </div>
+            <button class="btn btn-primary btn-md" style="width:100%" id="bt-run-btn">
+              <svg width="13" height="13" viewBox="0 0 13 13" class="icon-glass-stroke" aria-hidden="true"><path d="M3 2l8 4.5L3 11V2Z"/></svg>
+              Run Backtest
+            </button>
+            <p style="font-size:11px;color:rgba(255,255,255,.3);line-height:1.55">
+              5m/15m data = last 60 days. Use 1d for longer historical periods. Futures require <strong style="color:rgba(255,255,255,.5)">yfinance</strong> (MES1! → MES=F).
+            </p>
+          </div>
+
+          <!-- ── Results panel ── -->
+          <div id="bt-results-panel">
+
+            <!-- Empty state -->
+            <div id="bt-state-empty" class="bt-placeholder">
+              <svg width="44" height="44" viewBox="0 0 44 44" fill="none" aria-hidden="true">
+                <rect x="4" y="4" width="36" height="36" rx="8" stroke="currentColor" stroke-width="2" opacity=".4"/>
+                <path d="M11 31l7-9 5 4 5-10 6 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity=".6"/>
+              </svg>
+              Configure a strategy and date range, then click <strong style="color:rgba(255,255,255,.6)">Run Backtest</strong>.
+            </div>
+
+            <!-- Running state -->
+            <div id="bt-state-running" class="bt-running" style="display:none">
+              <div class="chat-thinking-dots">
+                <span></span><span></span><span></span>
+              </div>
+              Fetching data and simulating trades…
+            </div>
+
+            <!-- Error state -->
+            <div id="bt-state-error" class="bt-error-box" style="display:none"></div>
+
+            <!-- Results -->
+            <div id="bt-state-content" style="display:none">
+
+              <!-- Summary bar -->
+              <div class="bt-summary-bar" id="bt-summary-bar"></div>
+
+              <!-- Metrics grid -->
+              <div class="bt-metrics-grid" id="bt-metrics-grid"></div>
+
+              <!-- Equity curve canvas -->
+              <div class="bt-canvas-wrap">
+                <div class="flex items-center justify-between" style="margin-bottom:var(--space-4)">
+                  <span class="text-headline">Equity Curve</span>
+                  <span id="bt-curve-legend" style="font-size:11px;color:rgba(255,255,255,.35)"></span>
+                </div>
+                <canvas id="bt-equity-canvas" height="240"></canvas>
+              </div>
+
+              <!-- Trades table -->
+              <div class="bt-trades-wrap">
+                <div class="flex items-center justify-between" style="margin-bottom:var(--space-4)">
+                  <span class="text-headline">Trades</span>
+                  <span id="bt-trade-count" style="font-size:12px;color:rgba(255,255,255,.4)"></span>
+                </div>
+                <div style="overflow-x:auto">
+                  <table class="bt-table">
+                    <thead>
+                      <tr>
+                        <th>#</th>
+                        <th>Side</th>
+                        <th>Qty</th>
+                        <th>Entry</th>
+                        <th>Exit</th>
+                        <th>P&amp;L</th>
+                        <th>Reason</th>
+                      </tr>
+                    </thead>
+                    <tbody id="bt-trades-tbody"></tbody>
+                  </table>
+                </div>
+              </div>
+
+            </div><!-- /#bt-state-content -->
+          </div><!-- /#bt-results-panel -->
+
+        </div><!-- /.bt-layout -->
+      </div><!-- /#view-backtest -->
+
+    </div><!-- /.page-inner -->
+  </main>
 
   <!-- STRATEGY DETAIL MODAL -->
   <div id="strategy-detail-modal" class="center-modal" role="dialog" aria-modal="true" aria-label="Strategy detail">
@@ -627,7 +1365,7 @@
       </div>
       <div class="form-field">
         <label class="form-label" for="acc-symbol">Default Symbol</label>
-        <input type="text" id="acc-symbol" class="input-glass" placeholder="CME_MINI:MES1!" style="width:100%;padding:8px 12px;border-radius:8px"/>
+        <input type="text" id="acc-symbol" class="input-glass" placeholder="AMEX:SPY (or CME_MINI:MES1! if signed in)" style="width:100%;padding:8px 12px;border-radius:8px"/>
       </div>
       <div class="form-field">
         <label class="form-label" for="acc-interval">Default Interval</label>
@@ -641,6 +1379,57 @@
         <button class="btn btn-primary btn-md" style="flex:1" id="btn-save-account">Save Account</button>
         <button class="btn btn-secondary btn-md" data-close-modal>Cancel</button>
       </div>
+    </div>
+  </div>
+
+  <!-- TRADING ACCOUNT MODAL -->
+  <div id="trading-account-modal" class="center-modal" role="dialog" aria-modal="true" aria-label="Manage trading accounts">
+    <div class="modal-card" id="trading-account-modal-card">
+      <div class="flex items-center justify-between" style="margin-bottom:var(--space-5)">
+        <h2 class="text-title-2">Trading Accounts</h2>
+        <button class="btn btn-icon btn-sm" onclick="document.getElementById('trading-account-modal').classList.remove('open')" aria-label="Close"><svg width="12" height="12" viewBox="0 0 12 12" class="icon-glass-stroke" aria-hidden="true"><path d="M1 1l10 10M11 1L1 11"/></svg></button>
+      </div>
+      <div id="trading-accounts-list" style="margin-bottom:var(--space-5)">
+        <p class="text-caption-1 text-tertiary">Loading accounts…</p>
+      </div>
+      <details>
+        <summary class="btn btn-secondary btn-sm" style="cursor:pointer;list-style:none;margin-bottom:var(--space-4)">+ Add New Account</summary>
+        <div style="margin-top:var(--space-4)">
+          <div class="form-field">
+            <label class="form-label" for="ta-name">Account Name</label>
+            <input type="text" id="ta-name" class="input-glass" placeholder="e.g. Lucid $50K Prop" style="width:100%;padding:8px 12px;border-radius:8px"/>
+          </div>
+          <div class="form-field">
+            <label class="form-label" for="ta-type">Account Type</label>
+            <select id="ta-type" class="input-glass" style="width:100%;padding:8px 12px;border-radius:8px">
+              <option value="PROP_FIRM">Prop Firm</option>
+              <option value="PERSONAL_LIVE">Personal Live</option>
+              <option value="DEMO">Demo</option>
+              <option value="MANUAL">Manual (Signals Only)</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label class="form-label" for="ta-risk">Risk Mode</label>
+            <select id="ta-risk" class="input-glass" style="width:100%;padding:8px 12px;border-radius:8px">
+              <option value="PROTECTED">Protected (Prop Firm)</option>
+              <option value="BALANCED" selected>Balanced</option>
+              <option value="FREE">Free (Full Trust)</option>
+              <option value="SIMULATION">Simulation</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label class="form-label" for="ta-balance">Starting Balance ($)</label>
+            <input type="number" id="ta-balance" class="input-glass" placeholder="50000" style="width:100%;padding:8px 12px;border-radius:8px"/>
+          </div>
+          <div class="form-field" id="ta-dll-field">
+            <label class="form-label" for="ta-dll">Daily Loss Limit ($)</label>
+            <input type="number" id="ta-dll" class="input-glass" placeholder="1000" style="width:100%;padding:8px 12px;border-radius:8px"/>
+          </div>
+          <div class="flex gap-3" style="margin-top:var(--space-4)">
+            <button class="btn btn-primary btn-md" style="flex:1" onclick="createTradingAccount()">Create Account</button>
+          </div>
+        </div>
+      </details>
     </div>
   </div>
 
@@ -688,7 +1477,7 @@
 
 <!-- TradingView widget library -->
 <script src="https://s3.tradingview.com/tv.js"></script>
-<script src="/static/js/app.js"></script>
+<script src="/static/js/app.js?v=2"></script>
 
 <!-- Mirror perf stats to hero + sidebar -->
 <script>
